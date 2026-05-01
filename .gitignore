@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Descargas temporales y reportes generados
+temp_downloads/
+reports/
+
+# Config local con credenciales (se guarda en ~/.spotifytoyoutube/)
+*.json
+!data/blacklist.json
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Cache de spotipy/requests
+.cache
+.cache-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
