@@ -147,6 +147,18 @@ const LOG_POOL = [
   { lv:'INFO',    msg:'Idioma detectado: JP (análisis Unicode katakana/hiragana)' },
 ];
 
+const DOWNLOAD_HISTORY = [
+  { id:1,  trackId:1,  file:'The Weeknd - Blinding Lights.mp3',          score:97, downloadedAt:'2026-04-30 22:14', lang:'EN', ytChannel:'TheWeekndVEVO',      dur:'3:22', status:'ok'      },
+  { id:2,  trackId:10, file:'YOASOBI - 夜に駆ける.mp3',                    score:95, downloadedAt:'2026-04-30 21:58', lang:'JP', ytChannel:'YOASOBI Official',   dur:'4:18', status:'ok'      },
+  { id:3,  trackId:13, file:'Official髭男dism - Pretender.mp3',            score:96, downloadedAt:'2026-04-30 21:47', lang:'JP', ytChannel:'Epic Records JP',    dur:'5:23', status:'ok'      },
+  { id:4,  trackId:6,  file:'LiSA - 紅蓮華.mp3',                           score:58, downloadedAt:'2026-04-30 21:33', lang:'JP', ytChannel:'AnimeSongsJP',       dur:'4:07', status:'dubious' },
+  { id:5,  trackId:3,  file:'BTS - 봄날 (Spring Day).mp3',                  score:89, downloadedAt:'2026-04-30 21:19', lang:'KR', ytChannel:'HYBE LABELS',        dur:'7:56', status:'ok'      },
+  { id:6,  trackId:5,  file:'Enrique Iglesias - Duele El Corazon.mp3',    score:92, downloadedAt:'2026-04-29 18:44', lang:'ES', ytChannel:'EnriqueIglesiasVEVO', dur:'3:34', status:'ok'      },
+  { id:7,  trackId:12, file:'Brooks & Dunn - Neon Moon.mp3',              score:88, downloadedAt:'2026-04-29 18:31', lang:'EN', ytChannel:'BrooksAndDunnVEVO',  dur:'3:29', status:'ok'      },
+  { id:8,  trackId:7,  file:'BTS Dynamite Official Audio.mp3',            score:83, downloadedAt:'2026-04-29 17:52', lang:'EN', ytChannel:'HYBE LABELS',        dur:'3:19', status:'ok'      },
+  { id:9,  trackId:15, file:'BTS Boy With Luv (feat Halsey).mp3',         score:74, downloadedAt:'2026-04-28 14:10', lang:'KR', ytChannel:'HYBE LABELS',        dur:'3:49', status:'dubious' },
+];
+
 /* ─── Micro components ───────────────────────────────────────────────────── */
 function CoverArt({ artist = '?', idx = 0, size = 36 }) {
   const bg = COVER_PALETTE[idx % COVER_PALETTE.length];
@@ -299,10 +311,21 @@ function IconSettings({ active }) {
     </svg>
   );
 }
+function IconHistory({ active }) {
+  const c = active ? '#1DB954' : '#666';
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M9 4v5l3 2" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M3.5 9A5.5 5.5 0 1 0 5 5.5" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M3.5 6V9H6.5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
 
 const NAV = [
   { id:'compare',  label:'Comparar',  Icon:IconCompare  },
   { id:'queue',    label:'Cola',      Icon:IconQueue    },
+  { id:'history',  label:'Historial', Icon:IconHistory  },
   { id:'monitor',  label:'Monitor',   Icon:IconMonitor  },
   { id:'settings', label:'Config',    Icon:IconSettings },
 ];
@@ -383,6 +406,11 @@ function Sidebar({ active, setActive, queueCount }) {
 function CompareView({ onAddToQueue }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [scanProgress] = useState(74);
+  const [adbState, setAdbState] = useState('idle'); // idle | connecting | success | error
+  const adbAttemptRef = useRef(0);
+  const adbTimerRef   = useRef(null);
+
+  useEffect(() => () => clearTimeout(adbTimerRef.current), []);
 
   const stats = {
     total:   TRACKS.length,
@@ -400,72 +428,130 @@ function CompareView({ onAddToQueue }) {
     return true;
   });
 
+  const handleAdbTest = () => {
+    if (adbState === 'connecting') return;
+    if (adbState === 'success' || adbState === 'error') { setAdbState('idle'); return; }
+    setAdbState('connecting');
+    clearTimeout(adbTimerRef.current);
+    adbAttemptRef.current += 1;
+    const n = adbAttemptRef.current;
+    adbTimerRef.current = setTimeout(() => setAdbState(n % 2 === 1 ? 'success' : 'error'), 2000);
+  };
+
+  const FILTER_TABS = [
+    { val:'all',     prefix:'',   label:'Todos',       num:stats.total,   numColor:'var(--text-2)' },
+    { val:'exists',  prefix:'✓ ', label:'Encontrados', num:stats.exists,  numColor:'#1DB954'       },
+    { val:'missing', prefix:'— ', label:'Faltantes',   num:stats.missing, numColor:'#E22D44'       },
+    { val:'dubious', prefix:'? ', label:'Dudosos',     num:stats.dubious, numColor:'#F59B23'       },
+  ];
+
+  const adbBtnStyle = {
+    display:'flex', alignItems:'center', gap:6,
+    padding:'6px 11px', borderRadius:5, fontSize:11.5, fontWeight:600,
+    cursor: adbState === 'connecting' ? 'not-allowed' : 'pointer',
+    transition:'all 0.15s', whiteSpace:'nowrap',
+    border:`1px solid ${adbState==='success' ? 'rgba(29,185,84,0.4)' : adbState==='error' ? 'rgba(226,45,68,0.4)' : 'var(--border)'}`,
+    background: adbState==='success' ? 'rgba(29,185,84,0.08)' : adbState==='error' ? 'rgba(226,45,68,0.08)' : 'var(--elevated)',
+    color: adbState==='success' ? '#1DB954' : adbState==='error' ? '#E22D44' : 'var(--text-2)',
+    opacity: adbState==='connecting' ? 0.65 : 1,
+  };
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
-      {/* Header */}
-      <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+      {/* Header — 2 rows instead of 4 */}
+      <div style={{ padding:'16px 22px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+
+        {/* Row 1: title + action buttons */}
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:11 }}>
           <div>
             <h1 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', marginBottom:2 }}>Comparar Biblioteca</h1>
             <p style={{ color:'var(--text-3)', fontSize:11.5 }}>Spotify Playlist ↔ Teléfono Android · /snaptube/download/Snaptube Audio/</p>
           </div>
-          <Btn variant="accent">
-            <svg width="9" height="11" viewBox="0 0 9 11" fill="black"><path d="M0 0L9 5.5L0 11V0Z"/></svg>
-            Escanear
-          </Btn>
-        </div>
+          <div style={{ display:'flex', gap:7, alignItems:'center' }}>
 
-        {/* Stats strip */}
-        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:14 }}>
-          {[
-            { label:'Total Spotify', val:stats.total,   c:'var(--text-2)' },
-            { label:'En teléfono',   val:stats.exists,  c:'#1DB954'       },
-            { label:'Faltantes',     val:stats.missing, c:'#E22D44'       },
-            { label:'Dudosos',       val:stats.dubious, c:'#F59B23'       },
-          ].map(s => (
-            <div key={s.label} style={{
-              padding:'7px 12px', background:'var(--elevated)', borderRadius:6,
-              display:'flex', alignItems:'baseline', gap:6, border:'1px solid var(--border)',
-            }}>
-              <span style={{ fontSize:17, fontWeight:800, color:s.c, fontFamily:'monospace', letterSpacing:'-0.03em' }}>{s.val}</span>
-              <span style={{ fontSize:10.5, color:'var(--text-3)' }}>{s.label}</span>
-            </div>
-          ))}
+            {/* ADB test button — inline feedback, no modal */}
+            <button onClick={handleAdbTest} disabled={adbState === 'connecting'} style={adbBtnStyle}
+              onMouseEnter={e => { if (adbState==='idle') e.currentTarget.style.filter='brightness(1.12)'; }}
+              onMouseLeave={e => { e.currentTarget.style.filter='none'; }}
+            >
+              {adbState === 'connecting' && (
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ animation:'spin 0.75s linear infinite', flexShrink:0 }}>
+                  <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="14 6" strokeLinecap="round"/>
+                </svg>
+              )}
+              {adbState === 'success' && (
+                <svg width="11" height="9" viewBox="0 0 11 9" fill="none" style={{ flexShrink:0 }}>
+                  <path d="M1 4.5L4 7.5L10 1" stroke="#1DB954" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+              {adbState === 'error' && (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink:0 }}>
+                  <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="#E22D44" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
+              )}
+              {adbState === 'idle' && (
+                <svg width="11" height="14" viewBox="0 0 11 14" fill="none" style={{ flexShrink:0 }}>
+                  <rect x="0.75" y="1.75" width="9.5" height="11.5" rx="1.5" stroke="currentColor" strokeWidth="1.25"/>
+                  <path d="M3.5 0.75L4 1.75M7.5 0.75L7 1.75" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+                  <circle cx="5.5" cy="11.25" r="0.8" fill="currentColor"/>
+                  <path d="M3 5.5h5M3 7.5h3" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                </svg>
+              )}
+              {adbState === 'connecting' ? 'Conectando...'    :
+               adbState === 'success'    ? 'SM-G998B · Android 13' :
+               adbState === 'error'      ? 'Sin dispositivo ADB' :
+               'Probar ADB'}
+            </button>
 
-          <div style={{ flex:1 }} />
-
-          {/* Progress bar */}
-          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-            <span style={{ fontSize:10.5, color:'var(--text-3)' }}>Scan:</span>
-            <div style={{ width:140, height:3, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
-              <div style={{ width:`${scanProgress}%`, height:'100%', background:'var(--accent)', borderRadius:2 }} />
-            </div>
-            <span style={{ fontSize:11, color:'var(--text-2)', fontFamily:'monospace', width:32 }}>{scanProgress}%</span>
+            <Btn variant="accent">
+              <svg width="9" height="11" viewBox="0 0 9 11" fill="black"><path d="M0 0L9 5.5L0 11V0Z"/></svg>
+              Escanear
+            </Btn>
           </div>
         </div>
 
-        {/* Filter tabs */}
-        <div style={{ display:'flex', gap:4 }}>
-          {[
-            ['all',     'Todos'],
-            ['exists',  '✓ Encontrados'],
-            ['missing', '— Faltantes'],
-            ['dubious', '? Dudosos'],
-          ].map(([val, label]) => (
-            <button
-              key={val}
-              onClick={() => setFilterStatus(val)}
-              style={{
-                padding:'3px 11px', borderRadius:4, fontSize:11, fontWeight:500,
-                cursor:'pointer', transition:'all 0.15s',
-                background: filterStatus === val ? 'var(--accent-bg)' : 'transparent',
-                color:       filterStatus === val ? 'var(--accent)' : 'var(--text-3)',
-                border:      `1px solid ${filterStatus === val ? 'rgba(29,185,84,0.35)' : 'transparent'}`,
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        {/* Row 2: filter tabs with counts + scan progress — todo en una línea */}
+        <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+          {FILTER_TABS.map(({ val, prefix, label, num, numColor }) => {
+            const isActive = filterStatus === val;
+            return (
+              <button
+                key={val}
+                onClick={() => setFilterStatus(val)}
+                style={{
+                  display:'flex', alignItems:'center', gap:5,
+                  padding:'4px 10px', borderRadius:5, fontSize:11.5, fontWeight:500,
+                  cursor:'pointer', transition:'all 0.15s', whiteSpace:'nowrap',
+                  background: isActive ? 'var(--accent-bg)' : 'transparent',
+                  color:       isActive ? 'var(--text)' : 'var(--text-3)',
+                  border:      `1px solid ${isActive ? 'rgba(29,185,84,0.35)' : 'transparent'}`,
+                }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--hover)'; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+              >
+                {prefix}{label}
+                <span style={{
+                  fontSize:10, fontWeight:700, fontFamily:'monospace',
+                  color: isActive ? numColor : numColor + 'AA',
+                  background: isActive ? numColor + '18' : 'transparent',
+                  padding:'1px 5px', borderRadius:3, transition:'all 0.15s',
+                }}>
+                  {num}
+                </span>
+              </button>
+            );
+          })}
+
+          <div style={{ flex:1 }} />
+
+          {/* Scan progress compacto — sin fila propia */}
+          <div style={{ display:'flex', alignItems:'center', gap:7, flexShrink:0 }}>
+            <span style={{ fontSize:10, color:'var(--text-3)', letterSpacing:'0.04em' }}>Scan</span>
+            <div style={{ width:108, height:2.5, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+              <div style={{ width:`${scanProgress}%`, height:'100%', background:'var(--accent)', borderRadius:2, transition:'width 0.4s ease' }} />
+            </div>
+            <span style={{ fontSize:10.5, color:'var(--text-2)', fontFamily:'monospace', minWidth:28, textAlign:'right' }}>{scanProgress}%</span>
+          </div>
         </div>
       </div>
 
@@ -518,16 +604,12 @@ function CompareView({ onAddToQueue }) {
                   <>
                     <StatusBadge status="missing" />
                     <div style={{ flex:1 }} />
-                    <Btn variant="green" small onClick={() => onAddToQueue(track)}>
-                      + Cola
-                    </Btn>
+                    <Btn variant="green" small onClick={() => onAddToQueue(track)}>+ Cola</Btn>
                   </>
                 ) : (
                   <>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:11, color:'var(--text-2)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                        {file?.file}
-                      </div>
+                      <div style={{ fontSize:11, color:'var(--text-2)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{file?.file}</div>
                       <div style={{ height:2.5, background:'var(--border)', borderRadius:2, marginTop:5, overflow:'hidden' }}>
                         <div style={{ height:'100%', width:`${file?.score}%`, background:scoreColor(file?.score||0), borderRadius:2 }} />
                       </div>
@@ -535,9 +617,7 @@ function CompareView({ onAddToQueue }) {
                     <ScoreBadge score={file?.score} />
                     <StatusBadge status={status} />
                     {status === 'dubious' && (
-                      <Btn variant="ghost" small onClick={() => onAddToQueue(track)} style={{ fontSize:13, padding:'2px 6px' }}>
-                        🔍
-                      </Btn>
+                      <Btn variant="green" small onClick={() => onAddToQueue(track)}>+ Cola</Btn>
                     )}
                   </>
                 )}
@@ -546,7 +626,6 @@ function CompareView({ onAddToQueue }) {
           );
         })}
 
-        {/* "Showing X of 2847 total" footer */}
         <div style={{ padding:'12px 16px', fontSize:11, color:'var(--text-3)', borderTop:'1px solid var(--border)' }}>
           Mostrando {filtered.length} de 2,847 tracks totales en la playlist · Scroll para ver más
         </div>
@@ -558,12 +637,29 @@ function CompareView({ onAddToQueue }) {
 /* ─── Download Queue ─────────────────────────────────────────────────────── */
 function DownloadQueueView({ queue, setQueue, onYtSearch }) {
   const trackMap = Object.fromEntries(TRACKS.map(t => [t.id, t]));
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const pending   = queue.filter(q => q.status === 'pending').length;
   const approved  = queue.filter(q => q.status === 'approved').length;
   const rejected  = queue.filter(q => q.status === 'rejected').length;
 
   const setStatus = (id, status) => setQueue(q => q.map(item => item.id === id ? { ...item, status } : item));
   const approveAll = () => setQueue(q => q.map(item => item.status === 'pending' ? { ...item, status:'approved' } : item));
+
+  const toggleSelect = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const clearSelection = () => setSelectedIds(new Set());
+  const approveSelected = () => {
+    setQueue(q => q.map(item => selectedIds.has(item.id) ? { ...item, status:'approved' } : item));
+    clearSelection();
+  };
+  const rejectSelected = () => {
+    setQueue(q => q.map(item => selectedIds.has(item.id) ? { ...item, status:'rejected' } : item));
+    clearSelection();
+  };
+  const selCount = selectedIds.size;
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
@@ -579,16 +675,32 @@ function DownloadQueueView({ queue, setQueue, onYtSearch }) {
               {rejected > 0 && <><span style={{ color:'var(--text-3)' }}> · </span><span style={{ color:'var(--red)' }}>{rejected} rechazadas</span></>}
             </p>
           </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn onClick={approveAll} variant="default">Aprobar todo</Btn>
-            <Btn variant="accent" disabled={approved === 0} onClick={() => alert(`Iniciando descarga de ${approved} track(s)...`)}>
-              <svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor">
-                <path d="M5.5 0v7.5M2 5l3.5 3.5L9 5M0 11h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-              </svg>
-              Descargar {approved > 0 ? `(${approved})` : ''}
-            </Btn>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {selCount > 0 ? (
+              <>
+                <span style={{ fontSize:11, color:'var(--text-3)', fontFamily:'monospace' }}>{selCount} seleccionadas</span>
+                <Btn variant="green" small onClick={approveSelected}>✓ Aprobar</Btn>
+                <Btn variant="red"   small onClick={rejectSelected}>✕ Rechazar</Btn>
+                <Btn variant="ghost" small onClick={clearSelection}>Limpiar</Btn>
+              </>
+            ) : (
+              <>
+                <Btn onClick={approveAll} variant="default">Aprobar todo</Btn>
+                <Btn variant="accent" disabled={approved === 0} onClick={() => alert(`Iniciando descarga de ${approved} track(s)...`)}>
+                  <svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor">
+                    <path d="M5.5 0v7.5M2 5l3.5 3.5L9 5M0 11h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                  </svg>
+                  Descargar {approved > 0 ? `(${approved})` : ''}
+                </Btn>
+              </>
+            )}
           </div>
         </div>
+        {selCount === 0 && (
+          <p style={{ fontSize:10.5, color:'var(--text-3)' }}>
+            Haz click en una fila para seleccionarla · Luego aprueba o rechaza en bloque
+          </p>
+        )}
       </div>
 
       <div style={{ flex:1, overflow:'auto', padding:'12px 20px' }}>
@@ -605,20 +717,38 @@ function DownloadQueueView({ queue, setQueue, onYtSearch }) {
               if (!track) return null;
               const isApproved = item.status === 'approved';
               const isRejected = item.status === 'rejected';
+              const isSel      = selectedIds.has(item.id);
 
               return (
                 <div
                   key={item.id}
+                  onClick={() => toggleSelect(item.id)}
                   style={{
-                    background:'var(--elevated)', borderRadius:8,
-                    border:`1px solid ${isApproved ? 'rgba(29,185,84,0.28)' : isRejected ? 'rgba(226,45,68,0.2)' : 'var(--border)'}`,
+                    background: isSel ? 'rgba(29,185,84,0.07)' : 'var(--elevated)',
+                    borderRadius:8,
+                    border:`1px solid ${isSel ? 'rgba(29,185,84,0.45)' : isApproved ? 'rgba(29,185,84,0.28)' : isRejected ? 'rgba(226,45,68,0.2)' : 'var(--border)'}`,
                     opacity: isRejected ? 0.45 : 1,
-                    overflow:'hidden', transition:'all 0.2s',
+                    overflow:'hidden', transition:'all 0.15s',
                     animation:'fadeIn 0.2s ease',
+                    cursor:'pointer', userSelect:'none',
                   }}
+                  onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--hover)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(29,185,84,0.07)' : 'var(--elevated)'; }}
                 >
-                  {isApproved && <div style={{ height:2, background:'var(--accent)' }} />}
+                  {isApproved && !isSel && <div style={{ height:2, background:'var(--accent)' }} />}
+                  {isSel && <div style={{ height:2, background:'rgba(29,185,84,0.6)' }} />}
                   <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:12 }}>
+                    {/* Selection indicator */}
+                    <div style={{
+                      width:16, height:16, borderRadius:4, flexShrink:0,
+                      border:`1.5px solid ${isSel ? 'var(--accent)' : 'var(--border)'}`,
+                      background: isSel ? 'var(--accent)' : 'transparent',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      transition:'all 0.12s',
+                    }}>
+                      {isSel && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+
                     <CoverArt artist={track.artist} idx={i} size={38} />
 
                     {/* Track info */}
@@ -649,9 +779,9 @@ function DownloadQueueView({ queue, setQueue, onYtSearch }) {
                       <ScoreBadge score={item.ytScore} />
                     </div>
 
-                    {/* Action buttons */}
-                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
-                      <Btn variant="ghost" small onClick={() => onYtSearch(track, item)} style={{ fontSize:14, padding:'5px 7px' }} title="Buscar alternativa en YouTube">
+                    {/* Action buttons — stopPropagation para no activar row-click */}
+                    <div style={{ display:'flex', gap:5, flexShrink:0 }} onClick={e => e.stopPropagation()}>
+                      <Btn variant="ghost" small onClick={() => onYtSearch(track, item)} style={{ fontSize:14, padding:'5px 7px' }} title="Videos alternativos">
                         🔍
                       </Btn>
                       <Btn
@@ -995,6 +1125,8 @@ function SettingsView() {
   });
   const [showSecret, setShowSecret] = useState(false);
   const [langs, setLangs] = useState({ JP:true, KR:true, EN:true, ES:true, CN:false, RU:false });
+  const [scopeMode, setScopeMode] = useState('all');
+  const [scopeLastN, setScopeLastN] = useState(200);
   const [blacklist, setBlacklist] = useState([
     { name:'Song Title Example', artist:'Artist Name' },
     { name:'Annoying Radio Edit Version', artist:'Pop Artist Generic' },
@@ -1205,6 +1337,78 @@ function SettingsView() {
 
               <div style={{ height:1, background:'var(--border)' }} />
 
+              {/* Alcance de comparación */}
+              <div>
+                <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:9 }}>Alcance de comparación</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {[
+                    { val:'all',      label:'Toda la playlist',         desc:'Compara todos los tracks de Spotify' },
+                    { val:'last_n',   label:'Últimos N tracks',          desc:null },
+                    { val:'lang',     label:'Solo por idioma activo',    desc:'Usa los idiomas marcados arriba' },
+                  ].map(opt => {
+                    const isOn = scopeMode === opt.val;
+                    return (
+                      <div
+                        key={opt.val}
+                        onClick={() => setScopeMode(opt.val)}
+                        style={{
+                          display:'flex', alignItems:'center', gap:10,
+                          padding:'8px 11px', borderRadius:6, cursor:'pointer',
+                          background: isOn ? 'var(--accent-bg)' : 'var(--elevated)',
+                          border:`1px solid ${isOn ? 'rgba(29,185,84,0.35)' : 'var(--border)'}`,
+                          transition:'all 0.13s', userSelect:'none',
+                        }}
+                      >
+                        <div style={{
+                          width:14, height:14, borderRadius:'50%', flexShrink:0,
+                          border:`2px solid ${isOn ? 'var(--accent)' : 'var(--text-3)'}`,
+                          background: isOn ? 'var(--accent)' : 'transparent',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          transition:'all 0.13s',
+                        }}>
+                          {isOn && <div style={{ width:5, height:5, borderRadius:'50%', background:'black' }} />}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:11.5, fontWeight:600, color: isOn ? 'var(--accent)' : 'var(--text)' }}>{opt.label}</div>
+                          {opt.desc && <div style={{ fontSize:10, color:'var(--text-3)', marginTop:1 }}>{opt.desc}</div>}
+                        </div>
+                        {opt.val === 'last_n' && (
+                          <div onClick={e => e.stopPropagation()} style={{ display:'flex', alignItems:'center', gap:5 }}>
+                            <input
+                              type="number"
+                              value={scopeLastN}
+                              min={10} max={5000}
+                              onChange={e => { setScopeMode('last_n'); setScopeLastN(Math.max(10, +e.target.value)); }}
+                              style={{
+                                width:64, padding:'4px 7px', textAlign:'right',
+                                borderRadius:4, background:'var(--bg)',
+                                border:'1px solid var(--border)', color:'var(--text)',
+                                fontSize:12, fontFamily:'monospace',
+                              }}
+                              onFocus={e => e.target.style.borderColor = 'rgba(29,185,84,0.45)'}
+                              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                            />
+                            <span style={{ fontSize:10, color:'var(--text-3)' }}>tracks</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{
+                  marginTop:8, padding:'6px 10px', borderRadius:5,
+                  background:'rgba(245,155,35,0.06)', border:'1px solid rgba(245,155,35,0.18)',
+                  display:'flex', alignItems:'flex-start', gap:7,
+                }}>
+                  <span style={{ fontSize:13, flexShrink:0, marginTop:1 }}>⚡</span>
+                  <span style={{ fontSize:10, color:'#C8A04A', lineHeight:1.5 }}>
+                    Limita las llamadas a la API de Spotify y YouTube. Recomendado para playlists grandes (&gt;500 tracks) o cuando quieras solo sincronizar lo más reciente.
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ height:1, background:'var(--border)' }} />
+
               {/* Quick presets */}
               <div>
                 <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:9 }}>Presets de filtrado</div>
@@ -1235,6 +1439,137 @@ function SettingsView() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Download History ───────────────────────────────────────────────────── */
+function HistorialView() {
+  const [filter, setFilter] = useState('all');
+  const trackMap = Object.fromEntries(TRACKS.map(t => [t.id, t]));
+
+  const filtered = filter === 'all'
+    ? DOWNLOAD_HISTORY
+    : DOWNLOAD_HISTORY.filter(h => h.status === filter);
+
+  const filteredGrouped = filtered.reduce((acc, item) => {
+    const day = item.downloadedAt.split(' ')[0];
+    if (!acc[day]) acc[day] = [];
+    acc[day].push(item);
+    return acc;
+  }, {});
+
+  const okCount      = DOWNLOAD_HISTORY.filter(h => h.status === 'ok').length;
+  const dubiousCount = DOWNLOAD_HISTORY.filter(h => h.status === 'dubious').length;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+          <div>
+            <h1 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', marginBottom:2 }}>Historial de Descargas</h1>
+            <p style={{ color:'var(--text-3)', fontSize:11.5 }}>Tracks descargados recientemente al teléfono</p>
+          </div>
+          <div style={{ display:'flex', gap:10 }}>
+            {[
+              { label:'Total', val:DOWNLOAD_HISTORY.length, c:'var(--text-2)' },
+              { label:'Exitosas',  val:okCount,      c:'#1DB954' },
+              { label:'Dudosas',   val:dubiousCount, c:'#F59B23' },
+            ].map(s => (
+              <div key={s.label} style={{
+                padding:'6px 12px', background:'var(--elevated)', borderRadius:6,
+                display:'flex', alignItems:'baseline', gap:6, border:'1px solid var(--border)',
+              }}>
+                <span style={{ fontSize:16, fontWeight:800, color:s.c, fontFamily:'monospace' }}>{s.val}</span>
+                <span style={{ fontSize:10, color:'var(--text-3)' }}>{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Filter tabs */}
+        <div style={{ display:'flex', gap:4 }}>
+          {[['all','Todas'], ['ok','✓ Exitosas'], ['dubious','? Dudosas']].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setFilter(val)}
+              style={{
+                padding:'3px 11px', borderRadius:4, fontSize:11, fontWeight:500,
+                cursor:'pointer', transition:'all 0.15s',
+                background: filter === val ? 'var(--accent-bg)' : 'transparent',
+                color:       filter === val ? 'var(--accent)' : 'var(--text-3)',
+                border:      `1px solid ${filter === val ? 'rgba(29,185,84,0.35)' : 'transparent'}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflow:'auto', padding:'14px 22px' }}>
+        {Object.entries(filteredGrouped).map(([day, items]) => (
+          <div key={day} style={{ marginBottom:20 }}>
+            <div style={{
+              fontSize:10, fontWeight:700, color:'var(--text-3)', letterSpacing:'0.08em',
+              textTransform:'uppercase', marginBottom:8, display:'flex', alignItems:'center', gap:8,
+            }}>
+              {day}
+              <div style={{ flex:1, height:1, background:'var(--border)' }} />
+              <span style={{ fontWeight:400 }}>{items.length} track{items.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+              {items.map((item, i) => {
+                const track = trackMap[item.trackId];
+                const time  = item.downloadedAt.split(' ')[1];
+                const isDubious = item.status === 'dubious';
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      display:'flex', alignItems:'center', gap:12,
+                      padding:'9px 14px', borderRadius:7,
+                      background:'var(--elevated)', border:`1px solid ${isDubious ? 'rgba(245,155,35,0.22)' : 'var(--border)'}`,
+                      transition:'background 0.12s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--elevated)'}
+                  >
+                    <CoverArt artist={track?.artist || '?'} idx={i} size={34} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
+                        <span style={{ fontSize:12.5, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:200 }}>
+                          {track?.name || item.file}
+                        </span>
+                        <LangBadge lang={item.lang} />
+                        {isDubious && (
+                          <span style={{ fontSize:9, padding:'1px 6px', borderRadius:3, background:'rgba(245,155,35,0.15)', color:'#F59B23', fontWeight:700 }}>
+                            REVISAR
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize:10.5, color:'var(--text-3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                        {item.file}
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+                      <ScoreBadge score={item.score} />
+                      <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'monospace' }}>{item.dur}</span>
+                      <span style={{ fontSize:10, color:'var(--text-3)', fontFamily:'monospace', width:38, textAlign:'right' }}>{time}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ textAlign:'center', padding:'60px 0', color:'var(--text-3)' }}>
+            <div style={{ fontSize:24, marginBottom:10 }}>🕐</div>
+            <div>No hay descargas en este filtro</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1285,6 +1620,7 @@ function App() {
   const views = {
     compare:  <CompareView onAddToQueue={handleAddToQueue} />,
     queue:    <DownloadQueueView queue={queue} setQueue={setQueue} onYtSearch={handleYtSearch} />,
+    history:  <HistorialView />,
     monitor:  <ProcessMonitorView />,
     settings: <SettingsView />,
   };
