@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Sync Manager</title>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg:        #0D0D0D;
+      --surface:   #111111;
+      --elevated:  #1A1A1A;
+      --hover:     #222222;
+      --border:    #2A2A2A;
+      --accent:    #1DB954;
+      --accent-bg: rgba(29,185,84,0.10);
+      --text:      #FFFFFF;
+      --text-2:    #B3B3B3;
+      --text-3:    #666666;
+      --red:       #E22D44;
+      --red-bg:    rgba(226,45,68,0.10);
+      --yellow:    #F59B23;
+      --yellow-bg: rgba(245,155,35,0.10);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    #root { height: 100vh; display: flex; }
+    button { cursor: pointer; border: none; outline: none; font: inherit; }
+    input, select, textarea { font: inherit; outline: none; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+const LANG_COLOR = { JP:'#FF6B9D', KR:'#A29BFE', EN:'#74B9FF', ES:'#FDCB6E', CN:'#FF7675', RU:'#55EFC4' };
+const COVER_PALETTE = ['#C0392B','#2980B9','#8E44AD','#16A085','#E67E22','#D35400','#1ABC9C','#2C3E50','#E74C3C','#27AE60'];
+
+const scoreColor = s => s >= 85 ? '#1DB954' : s >= 65 ? '#F59B23' : '#E22D44';
+const scoreBg    = s => s >= 85 ? 'rgba(29,185,84,0.12)' : s >= 65 ? 'rgba(245,155,35,0.12)' : 'rgba(226,45,68,0.12)';
+
+/* ─── Mock data ──────────────────────────────────────────────────────────── */
+const TRACKS = [
+  { id:1,  name:'Blinding Lights',        artist:'The Weeknd',           lang:'EN', dur:'3:22', year:'2020', album:'After Hours' },
+  { id:2,  name:'残酷な天使のテーゼ',         artist:'高橋洋子',               lang:'JP', dur:'3:37', year:'1995', album:'NGE OST' },
+  { id:3,  name:'봄날 (Spring Day)',         artist:'BTS',                  lang:'KR', dur:'7:56', year:'2017', album:'You Never Walk Alone' },
+  { id:4,  name:'Flowers',                 artist:'Miley Cyrus',          lang:'EN', dur:'3:21', year:'2023', album:'Endless Summer Vacation' },
+  { id:5,  name:'Duele El Corazón',        artist:'Enrique Iglesias',     lang:'ES', dur:'3:34', year:'2014', album:'Sex and Love' },
+  { id:6,  name:'紅蓮華 (Gurenge)',          artist:'LiSA',                 lang:'JP', dur:'4:07', year:'2019', album:'LEO-NiNE' },
+  { id:7,  name:'Dynamite',                artist:'BTS',                  lang:'EN', dur:'3:19', year:'2020', album:'BE (Deluxe)' },
+  { id:8,  name:'Stay With Me',            artist:'Chanyeol, Punch',      lang:'KR', dur:'4:22', year:'2016', album:'도깨비 OST' },
+  { id:9,  name:'Vampire',                 artist:'Olivia Rodrigo',       lang:'EN', dur:'3:38', year:'2023', album:'GUTS' },
+  { id:10, name:'夜に駆ける',               artist:'YOASOBI',              lang:'JP', dur:'4:18', year:'2020', album:'THE BOOK' },
+  { id:11, name:'Anti-Hero',               artist:'Taylor Swift',         lang:'EN', dur:'3:20', year:'2022', album:'Midnights' },
+  { id:12, name:'Neon Moon',               artist:'Brooks & Dunn',        lang:'EN', dur:'3:29', year:'1991', album:'Brand New Man' },
+  { id:13, name:'Pretender',               artist:'Official髭男dism',      lang:'JP', dur:'5:23', year:'2019', album:'Traveler' },
+  { id:14, name:'La Gasolina',             artist:'Daddy Yankee',         lang:'ES', dur:'3:39', year:'2004', album:'Barrio Fino' },
+  { id:15, name:'Boy With Luv',            artist:'BTS, Halsey',          lang:'KR', dur:'3:49', year:'2019', album:'Map of the Soul: Persona' },
+];
+
+const PHONE_FILES = {
+  1:  { file:'The Weeknd - Blinding Lights.mp3',           score:97, status:'exists'  },
+  2:  { file:null,                                          score:0,  status:'missing' },
+  3:  { file:'BTS - 봄날 (Spring Day).mp3',                  score:89, status:'exists'  },
+  4:  { file:null,                                          score:0,  status:'missing' },
+  5:  { file:'Enrique Iglesias - Duele El Corazon.mp3',    score:92, status:'exists'  },
+  6:  { file:'LiSA - 紅蓮華.mp3',                            score:58, status:'dubious' },
+  7:  { file:'BTS Dynamite Official Audio.mp3',            score:83, status:'exists'  },
+  8:  { file:null,                                          score:0,  status:'missing' },
+  9:  { file:null,                                          score:0,  status:'missing' },
+  10: { file:'YOASOBI 夜に駆ける.mp3',                        score:95, status:'exists'  },
+  11: { file:null,                                          score:0,  status:'missing' },
+  12: { file:'Brooks & Dunn - Neon Moon.mp3',              score:88, status:'exists'  },
+  13: { file:'Official髭男dism - Pretender.mp3',            score:96, status:'exists'  },
+  14: { file:null,                                          score:0,  status:'missing' },
+  15: { file:'BTS Boy With Luv (feat Halsey).mp3',         score:74, status:'dubious' },
+};
+
+const INITIAL_QUEUE = [
+  { id:1, trackId:2,  ytTitle:'残酷な天使のテーゼ - 高橋洋子【Official Audio】',                ytChannel:'King Records Official', ytDur:'3:37', ytViews:'15.2M', ytScore:94, status:'pending'  },
+  { id:2, trackId:4,  ytTitle:'Miley Cyrus - Flowers (Official Video)',                   ytChannel:'MileyCyrusVEVO',       ytDur:'3:33', ytViews:'712M',  ytScore:82, status:'pending'  },
+  { id:3, trackId:8,  ytTitle:"Chanyeol & Punch - Stay With Me [Goblin OST]",             ytChannel:'SMTOWN',               ytDur:'4:22', ytViews:'89.7M', ytScore:91, status:'approved' },
+  { id:4, trackId:9,  ytTitle:'Olivia Rodrigo - vampire (Official Video)',                ytChannel:'Olivia Rodrigo',       ytDur:'3:42', ytViews:'203M',  ytScore:88, status:'pending'  },
+  { id:5, trackId:11, ytTitle:'Taylor Swift - Anti-Hero (Official Music Video)',           ytChannel:'TaylorSwiftVEVO',      ytDur:'3:20', ytViews:'1.2B',  ytScore:96, status:'pending'  },
+  { id:6, trackId:14, ytTitle:'Daddy Yankee & Snow - Con Calma (Video Oficial)',          ytChannel:'DaddyYankeeVEVO',      ytDur:'3:14', ytViews:'2.7B',  ytScore:61, status:'pending'  },
+];
+
+const YT_RESULTS = [
+  { id:1, title:'残酷な天使のテーゼ - 高橋洋子【Official Audio】',            channel:'King Records Official', dur:'3:37', views:'15.2M', score:94, current:true  },
+  { id:2, title:'残酷な天使のテーゼ - Evangelion OP (Full Ver.)',            channel:'AnimeSongsJP',          dur:'3:37', views:'8.4M',  score:88, current:false },
+  { id:3, title:'高橋洋子 - 残酷な天使のテーゼ LIVE NHK Hall',               channel:'NHK Music',             dur:'4:15', views:'2.1M',  score:41, current:false },
+  { id:4, title:"Cruel Angel's Thesis - Full HD 60fps Remaster",          channel:'EvangHD',               dur:'3:38', views:'22.1M', score:76, current:false },
+  { id:5, title:'残酷な天使のテーゼ - Piano & Orchestral Cover',            channel:'ClassicPianoJP',        dur:'4:03', views:'891K',  score:22, current:false },
+  { id:6, title:'Zankoku na Tenshi no Thesis Lyrics AMV [4K]',           channel:'AnimeLyrics4U',          dur:'3:37', views:'5.2M',  score:68, current:false },
+];
+
+const INIT_LOGS = [
+  { t:'14:23:01', lv:'INFO',    msg:'Iniciando Spotify Sync Manager v2.1.0' },
+  { t:'14:23:01', lv:'INFO',    msg:'Cargando config desde ~/.spotifytoyoutube/config.json' },
+  { t:'14:23:02', lv:'INFO',    msg:"Autenticando con Spotify API... OK" },
+  { t:'14:23:03', lv:'INFO',    msg:"Playlist 'Today's Top Hits' — cargando 2,847 tracks" },
+  { t:'14:23:05', lv:'INFO',    msg:'Conectando a dispositivo Android via ADB...' },
+  { t:'14:23:06', lv:'INFO',    msg:'Dispositivo encontrado: Samsung SM-G998B (Android 13)' },
+  { t:'14:23:07', lv:'INFO',    msg:'Escaneando /storage/emulated/0/snaptube/download/Snaptube Audio/' },
+  { t:'14:23:09', lv:'INFO',    msg:'2,134 archivos MP3 encontrados en el teléfono' },
+  { t:'14:23:10', lv:'INFO',    msg:'Comparación fuzzy (threshold: 75%)...' },
+  { t:'14:23:16', lv:'WARNING', msg:'Score bajo (58%) → LiSA - 紅蓮華 (Gurenge) ↔ LiSA - 紅蓮華.mp3' },
+  { t:'14:23:22', lv:'WARNING', msg:'Score bajo (74%) → BTS, Halsey - Boy With Luv ↔ BTS Boy With Luv.mp3' },
+  { t:'14:23:31', lv:'INFO',    msg:'Resultado: 713 faltantes, 89 dudosos, 2,045 encontrados' },
+  { t:'14:23:32', lv:'INFO',    msg:'Búsqueda YouTube para 713 tracks...' },
+  { t:'14:23:35', lv:'ERROR',   msg:'YouTube API rate limit — esperando 15s antes de reintentar' },
+  { t:'14:23:50', lv:'INFO',    msg:'Resumiendo búsqueda... [234/713 completados]' },
+];
+
+const LOG_POOL = [
+  { lv:'INFO',    msg:'Buscando: "Olivia Rodrigo - vampire" → score: 88' },
+  { lv:'INFO',    msg:'Buscando: "Taylor Swift - Anti-Hero" → score: 96' },
+  { lv:'WARNING', msg:'Sin resultado >80: "Enya - Orinoco Flow" — agregado a cola con score 61' },
+  { lv:'INFO',    msg:'Descargando: The Weeknd - Blinding Lights [360p audio]' },
+  { lv:'INFO',    msg:'Convirtiendo a MP3 via ffmpeg...' },
+  { lv:'INFO',    msg:'Metadatos escritos: título, artista, álbum, año, cover art' },
+  { lv:'INFO',    msg:'ADB push: Blinding Lights.mp3 → /storage/emulated/0/snaptube/...' },
+  { lv:'INFO',    msg:'[OK] Track 235/713 procesado' },
+  { lv:'ERROR',   msg:'pytubefix: HTTP 403 para videoId dQw4w9WgXcQ — reintentando' },
+  { lv:'INFO',    msg:'Reintento exitoso — descargando video alternativo' },
+  { lv:'INFO',    msg:'Idioma detectado: JP (análisis Unicode katakana/hiragana)' },
+];
+
+/* ─── Micro components ───────────────────────────────────────────────────── */
+function CoverArt({ artist = '?', idx = 0, size = 36 }) {
+  const bg = COVER_PALETTE[idx % COVER_PALETTE.length];
+  return (
+    <div style={{
+      width:size, height:size, borderRadius:4, flexShrink:0,
+      background:bg, display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize:size*0.38, fontWeight:700, color:'rgba(0,0,0,0.65)',
+      userSelect:'none', letterSpacing:'-0.02em',
+    }}>
+      {artist[0]?.toUpperCase() || '?'}
+    </div>
+  );
+}
+
+function YtThumb({ idx = 0, size = 96 }) {
+  const bg = COVER_PALETTE[(idx + 5) % COVER_PALETTE.length];
+  const h = Math.round(size * 0.5625);
+  return (
+    <div style={{
+      width:size, height:h, borderRadius:4, flexShrink:0, overflow:'hidden',
+      background:`linear-gradient(135deg, ${bg}55 0%, ${bg}22 100%)`,
+      border:`1px solid ${bg}33`,
+      display:'flex', alignItems:'center', justifyContent:'center',
+    }}>
+      <div style={{
+        width:28, height:28, borderRadius:'50%',
+        background:'rgba(0,0,0,0.45)', backdropFilter:'blur(4px)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        <svg width="10" height="12" viewBox="0 0 10 12" fill="white">
+          <path d="M0 0L10 6L0 12V0Z"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function ScoreBadge({ score }) {
+  if (!score) return <span style={{ color:'var(--text-3)', fontSize:11, fontFamily:'monospace' }}>—</span>;
+  return (
+    <span style={{
+      padding:'2px 8px', borderRadius:3, fontSize:11, fontWeight:700,
+      color:scoreColor(score), background:scoreBg(score),
+      fontFamily:'monospace', whiteSpace:'nowrap',
+    }}>
+      {score}%
+    </span>
+  );
+}
+
+function LangBadge({ lang }) {
+  const c = LANG_COLOR[lang] || '#888';
+  return (
+    <span style={{
+      padding:'2px 7px', borderRadius:3, fontSize:10, fontWeight:700,
+      color:c, background:`${c}1A`, letterSpacing:'0.04em',
+      fontFamily:'monospace', whiteSpace:'nowrap',
+    }}>
+      {lang}
+    </span>
+  );
+}
+
+function StatusBadge({ status }) {
+  const cfg = {
+    exists:  { label:'✓ Existe',  c:'#1DB954' },
+    missing: { label:'— Falta',   c:'#E22D44' },
+    dubious: { label:'? Dudoso',  c:'#F59B23' },
+  };
+  const { label, c } = cfg[status] || cfg.missing;
+  return (
+    <span style={{
+      padding:'2px 9px', borderRadius:3, fontSize:11, fontWeight:500,
+      color:c, background:`${c}18`, whiteSpace:'nowrap',
+    }}>
+      {label}
+    </span>
+  );
+}
+
+function Btn({ children, variant='default', small, onClick, disabled, style:s = {} }) {
+  const variants = {
+    default: { bg:'var(--elevated)', color:'var(--text-2)', border:'1px solid var(--border)' },
+    accent:  { bg:'var(--accent)',   color:'black',         border:'none' },
+    green:   { bg:'var(--accent-bg)',color:'var(--accent)', border:'1px solid rgba(29,185,84,0.3)' },
+    red:     { bg:'var(--red-bg)',   color:'var(--red)',    border:'1px solid rgba(226,45,68,0.3)' },
+    ghost:   { bg:'transparent',     color:'var(--text-3)', border:'1px solid transparent' },
+  };
+  const v = variants[variant] || variants.default;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: small ? '4px 10px' : '7px 14px',
+        borderRadius:5, fontSize: small ? 11 : 12, fontWeight:600,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        display:'flex', alignItems:'center', justifyContent:'center', gap:5,
+        transition:'filter 0.1s',
+        ...v, ...s,
+      }}
+      onMouseEnter={e => { if (!disabled) e.currentTarget.style.filter = 'brightness(1.12)'; }}
+      onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ─── Sidebar icons ──────────────────────────────────────────────────────── */
+function IconCompare({ active }) {
+  const c = active ? '#1DB954' : '#666';
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="1.5" y="2.5" width="5.5" height="13" rx="1.5" stroke={c} strokeWidth="1.5"/>
+      <rect x="11" y="2.5" width="5.5" height="13" rx="1.5" stroke={c} strokeWidth="1.5"/>
+      <path d="M7 9h4" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M8.5 7.5L10 9l-1.5 1.5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+function IconQueue({ active }) {
+  const c = active ? '#1DB954' : '#666';
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M3 5h12M3 9h9M3 13h11" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="14.5" cy="13" r="3" stroke={c} strokeWidth="1.5"/>
+      <path d="M13.5 13l.8.8 1.6-1.6" stroke={c} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+function IconMonitor({ active }) {
+  const c = active ? '#1DB954' : '#666';
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="1.5" y="2.5" width="15" height="10.5" rx="1.5" stroke={c} strokeWidth="1.5"/>
+      <path d="M5 15.5h8M9 13v2.5" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M5.5 7l2 2-2 2M10 11h2.5" stroke={c} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+function IconSettings({ active }) {
+  const c = active ? '#1DB954' : '#666';
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <circle cx="9" cy="9" r="2.5" stroke={c} strokeWidth="1.5"/>
+      <path d="M9 2v1.5M9 14.5V16M2 9h1.5M14.5 9H16M3.93 3.93l1.06 1.06M13.01 13.01l1.06 1.06M3.93 14.07l1.06-1.06M13.01 4.99l1.06-1.06" stroke={c} strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+const NAV = [
+  { id:'compare',  label:'Comparar',  Icon:IconCompare  },
+  { id:'queue',    label:'Cola',      Icon:IconQueue    },
+  { id:'monitor',  label:'Monitor',   Icon:IconMonitor  },
+  { id:'settings', label:'Config',    Icon:IconSettings },
+];
+
+function Sidebar({ active, setActive, queueCount }) {
+  return (
+    <div style={{
+      width:60, flexShrink:0, height:'100vh',
+      background:'#080808',
+      borderRight:'1px solid var(--border)',
+      display:'flex', flexDirection:'column', alignItems:'center',
+      paddingTop:14, paddingBottom:16, gap:2,
+    }}>
+      {/* Logo mark */}
+      <div style={{
+        width:34, height:34, borderRadius:'50%',
+        background:'var(--accent)', marginBottom:18,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        flexShrink:0,
+      }}>
+        <svg width="18" height="13" viewBox="0 0 18 13" fill="none">
+          <path d="M1 3.5C4 2 9 1.5 17 3.5" stroke="black" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M1 7C4 5.5 9 5 17 7"     stroke="black" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M3 10.5C5 9.5 9 9 15 10.5" stroke="black" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </div>
+
+      {NAV.map(({ id, label, Icon }) => {
+        const isActive = active === id;
+        return (
+          <div
+            key={id}
+            onClick={() => setActive(id)}
+            title={label}
+            style={{
+              width:46, height:46, borderRadius:9,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              cursor:'pointer', position:'relative',
+              background: isActive ? 'var(--accent-bg)' : 'transparent',
+              transition:'background 0.15s',
+            }}
+            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--hover)'; }}
+            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Icon active={isActive} />
+            {id === 'queue' && queueCount > 0 && (
+              <div style={{
+                position:'absolute', top:7, right:7,
+                width:14, height:14, borderRadius:'50%',
+                background:'var(--accent)', color:'black',
+                fontSize:8, fontWeight:800,
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                {queueCount > 9 ? '9+' : queueCount}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ flex:1 }} />
+
+      {/* ADB dot */}
+      <div title="ADB Conectado" style={{
+        display:'flex', flexDirection:'column', alignItems:'center', gap:3, paddingBottom:4,
+      }}>
+        <div style={{
+          width:8, height:8, borderRadius:'50%', background:'#1DB954',
+          boxShadow:'0 0 0 2px rgba(29,185,84,0.25)', animation:'blink 2.5s infinite',
+        }} />
+        <span style={{ fontSize:8, color:'var(--text-3)', letterSpacing:'0.06em', fontFamily:'monospace' }}>ADB</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Compare View ───────────────────────────────────────────────────────── */
+function CompareView({ onAddToQueue }) {
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [scanProgress] = useState(74);
+
+  const stats = {
+    total:   TRACKS.length,
+    exists:  Object.values(PHONE_FILES).filter(f => f.status === 'exists').length,
+    missing: Object.values(PHONE_FILES).filter(f => f.status === 'missing').length,
+    dubious: Object.values(PHONE_FILES).filter(f => f.status === 'dubious').length,
+  };
+
+  const filtered = TRACKS.filter(t => {
+    const f = PHONE_FILES[t.id];
+    if (filterStatus === 'all')     return true;
+    if (filterStatus === 'missing') return !f || f.status === 'missing';
+    if (filterStatus === 'dubious') return f?.status === 'dubious';
+    if (filterStatus === 'exists')  return f?.status === 'exists';
+    return true;
+  });
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+          <div>
+            <h1 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', marginBottom:2 }}>Comparar Biblioteca</h1>
+            <p style={{ color:'var(--text-3)', fontSize:11.5 }}>Spotify Playlist ↔ Teléfono Android · /snaptube/download/Snaptube Audio/</p>
+          </div>
+          <Btn variant="accent">
+            <svg width="9" height="11" viewBox="0 0 9 11" fill="black"><path d="M0 0L9 5.5L0 11V0Z"/></svg>
+            Escanear
+          </Btn>
+        </div>
+
+        {/* Stats strip */}
+        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:14 }}>
+          {[
+            { label:'Total Spotify', val:stats.total,   c:'var(--text-2)' },
+            { label:'En teléfono',   val:stats.exists,  c:'#1DB954'       },
+            { label:'Faltantes',     val:stats.missing, c:'#E22D44'       },
+            { label:'Dudosos',       val:stats.dubious, c:'#F59B23'       },
+          ].map(s => (
+            <div key={s.label} style={{
+              padding:'7px 12px', background:'var(--elevated)', borderRadius:6,
+              display:'flex', alignItems:'baseline', gap:6, border:'1px solid var(--border)',
+            }}>
+              <span style={{ fontSize:17, fontWeight:800, color:s.c, fontFamily:'monospace', letterSpacing:'-0.03em' }}>{s.val}</span>
+              <span style={{ fontSize:10.5, color:'var(--text-3)' }}>{s.label}</span>
+            </div>
+          ))}
+
+          <div style={{ flex:1 }} />
+
+          {/* Progress bar */}
+          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <span style={{ fontSize:10.5, color:'var(--text-3)' }}>Scan:</span>
+            <div style={{ width:140, height:3, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+              <div style={{ width:`${scanProgress}%`, height:'100%', background:'var(--accent)', borderRadius:2 }} />
+            </div>
+            <span style={{ fontSize:11, color:'var(--text-2)', fontFamily:'monospace', width:32 }}>{scanProgress}%</span>
+          </div>
+        </div>
+
+        {/* Filter tabs */}
+        <div style={{ display:'flex', gap:4 }}>
+          {[
+            ['all',     'Todos'],
+            ['exists',  '✓ Encontrados'],
+            ['missing', '— Faltantes'],
+            ['dubious', '? Dudosos'],
+          ].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setFilterStatus(val)}
+              style={{
+                padding:'3px 11px', borderRadius:4, fontSize:11, fontWeight:500,
+                cursor:'pointer', transition:'all 0.15s',
+                background: filterStatus === val ? 'var(--accent-bg)' : 'transparent',
+                color:       filterStatus === val ? 'var(--accent)' : 'var(--text-3)',
+                border:      `1px solid ${filterStatus === val ? 'rgba(29,185,84,0.35)' : 'transparent'}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table header */}
+      <div style={{
+        display:'grid', gridTemplateColumns:'1fr 1fr',
+        borderBottom:'1px solid var(--border)',
+        background:'var(--surface)', flexShrink:0,
+      }}>
+        <div style={{ padding:'7px 16px', fontSize:10, fontWeight:700, color:'var(--text-3)', letterSpacing:'0.08em', textTransform:'uppercase', borderRight:'1px solid var(--border)' }}>
+          SPOTIFY — {stats.total.toLocaleString()} tracks
+        </div>
+        <div style={{ padding:'7px 16px', fontSize:10, fontWeight:700, color:'var(--text-3)', letterSpacing:'0.08em', textTransform:'uppercase' }}>
+          TELÉFONO — {(stats.exists + stats.dubious).toLocaleString()} archivos matched
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div style={{ flex:1, overflow:'auto' }}>
+        {filtered.map((track, i) => {
+          const file = PHONE_FILES[track.id];
+          const status = file?.status || 'missing';
+          return (
+            <div
+              key={track.id}
+              style={{
+                display:'grid', gridTemplateColumns:'1fr 1fr',
+                borderBottom:'1px solid rgba(255,255,255,0.04)',
+                transition:'background 0.1s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {/* Spotify side */}
+              <div style={{ padding:'9px 16px', display:'flex', alignItems:'center', gap:10, borderRight:'1px solid var(--border)' }}>
+                <CoverArt artist={track.artist} idx={i} size={32} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12.5, fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{track.name}</div>
+                  <div style={{ fontSize:11, color:'var(--text-3)', marginTop:1 }}>{track.artist}</div>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                  <LangBadge lang={track.lang} />
+                  <span style={{ fontSize:10.5, color:'var(--text-3)', fontFamily:'monospace', minWidth:30 }}>{track.dur}</span>
+                </div>
+              </div>
+
+              {/* Phone side */}
+              <div style={{ padding:'9px 16px', display:'flex', alignItems:'center', gap:8 }}>
+                {status === 'missing' ? (
+                  <>
+                    <StatusBadge status="missing" />
+                    <div style={{ flex:1 }} />
+                    <Btn variant="green" small onClick={() => onAddToQueue(track)}>
+                      + Cola
+                    </Btn>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, color:'var(--text-2)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                        {file?.file}
+                      </div>
+                      <div style={{ height:2.5, background:'var(--border)', borderRadius:2, marginTop:5, overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${file?.score}%`, background:scoreColor(file?.score||0), borderRadius:2 }} />
+                      </div>
+                    </div>
+                    <ScoreBadge score={file?.score} />
+                    <StatusBadge status={status} />
+                    {status === 'dubious' && (
+                      <Btn variant="ghost" small onClick={() => onAddToQueue(track)} style={{ fontSize:13, padding:'2px 6px' }}>
+                        🔍
+                      </Btn>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* "Showing X of 2847 total" footer */}
+        <div style={{ padding:'12px 16px', fontSize:11, color:'var(--text-3)', borderTop:'1px solid var(--border)' }}>
+          Mostrando {filtered.length} de 2,847 tracks totales en la playlist · Scroll para ver más
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Download Queue ─────────────────────────────────────────────────────── */
+function DownloadQueueView({ queue, setQueue, onYtSearch }) {
+  const trackMap = Object.fromEntries(TRACKS.map(t => [t.id, t]));
+  const pending   = queue.filter(q => q.status === 'pending').length;
+  const approved  = queue.filter(q => q.status === 'approved').length;
+  const rejected  = queue.filter(q => q.status === 'rejected').length;
+
+  const setStatus = (id, status) => setQueue(q => q.map(item => item.id === id ? { ...item, status } : item));
+  const approveAll = () => setQueue(q => q.map(item => item.status === 'pending' ? { ...item, status:'approved' } : item));
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <div>
+            <h1 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', marginBottom:2 }}>Cola de Descarga</h1>
+            <p style={{ color:'var(--text-3)', fontSize:11.5 }}>
+              <span style={{ color:'var(--yellow)' }}>{pending} pendientes</span>
+              {' · '}
+              <span style={{ color:'var(--accent)' }}>{approved} aprobadas</span>
+              {rejected > 0 && <><span style={{ color:'var(--text-3)' }}> · </span><span style={{ color:'var(--red)' }}>{rejected} rechazadas</span></>}
+            </p>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn onClick={approveAll} variant="default">Aprobar todo</Btn>
+            <Btn variant="accent" disabled={approved === 0} onClick={() => alert(`Iniciando descarga de ${approved} track(s)...`)}>
+              <svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor">
+                <path d="M5.5 0v7.5M2 5l3.5 3.5L9 5M0 11h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+              </svg>
+              Descargar {approved > 0 ? `(${approved})` : ''}
+            </Btn>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflow:'auto', padding:'12px 20px' }}>
+        {queue.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'60px 0', color:'var(--text-3)' }}>
+            <div style={{ fontSize:28, marginBottom:12 }}>📭</div>
+            <div style={{ fontSize:13 }}>La cola está vacía</div>
+            <div style={{ fontSize:11.5, marginTop:4 }}>Agrega tracks desde la vista Comparar</div>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+            {queue.map((item, i) => {
+              const track = trackMap[item.trackId];
+              if (!track) return null;
+              const isApproved = item.status === 'approved';
+              const isRejected = item.status === 'rejected';
+
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    background:'var(--elevated)', borderRadius:8,
+                    border:`1px solid ${isApproved ? 'rgba(29,185,84,0.28)' : isRejected ? 'rgba(226,45,68,0.2)' : 'var(--border)'}`,
+                    opacity: isRejected ? 0.45 : 1,
+                    overflow:'hidden', transition:'all 0.2s',
+                    animation:'fadeIn 0.2s ease',
+                  }}
+                >
+                  {isApproved && <div style={{ height:2, background:'var(--accent)' }} />}
+                  <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:12 }}>
+                    <CoverArt artist={track.artist} idx={i} size={38} />
+
+                    {/* Track info */}
+                    <div style={{ width:160, flexShrink:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                        <span style={{ fontSize:12.5, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:120 }}>{track.name}</span>
+                        <LangBadge lang={track.lang} />
+                      </div>
+                      <div style={{ fontSize:11, color:'var(--text-3)' }}>{track.artist}</div>
+                    </div>
+
+                    <div style={{ color:'var(--text-3)', fontSize:14, flexShrink:0 }}>→</div>
+
+                    {/* YouTube video */}
+                    <YtThumb size={90} idx={i} />
+
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{
+                        fontSize:11.5, fontWeight:500, marginBottom:3, lineHeight:1.3,
+                        display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical',
+                        overflow:'hidden',
+                      }}>
+                        {item.ytTitle}
+                      </div>
+                      <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:6 }}>
+                        {item.ytChannel} · {item.ytDur} · {item.ytViews} vistas
+                      </div>
+                      <ScoreBadge score={item.ytScore} />
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                      <Btn variant="ghost" small onClick={() => onYtSearch(track, item)} style={{ fontSize:14, padding:'5px 7px' }} title="Buscar alternativa en YouTube">
+                        🔍
+                      </Btn>
+                      <Btn
+                        variant={isApproved ? 'green' : 'ghost'}
+                        small
+                        onClick={() => setStatus(item.id, isApproved ? 'pending' : 'approved')}
+                        title={isApproved ? 'Quitar aprobación' : 'Aprobar'}
+                        style={{ fontSize:14, padding:'5px 9px', fontWeight:800 }}
+                      >
+                        ✓
+                      </Btn>
+                      <Btn
+                        variant={isRejected ? 'red' : 'ghost'}
+                        small
+                        onClick={() => setStatus(item.id, isRejected ? 'pending' : 'rejected')}
+                        title={isRejected ? 'Restaurar' : 'Rechazar'}
+                        style={{ fontSize:13, padding:'5px 9px', fontWeight:800 }}
+                      >
+                        ✕
+                      </Btn>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── YouTube Search Modal ───────────────────────────────────────────────── */
+function YouTubeSearchModal({ track, onClose, onSelectVideo }) {
+  const [selected, setSelected] = useState(1);
+  const [query, setQuery] = useState(`${track?.artist || ''} - ${track?.name || ''}`);
+
+  if (!track) return null;
+
+  return (
+    <div
+      style={{
+        position:'fixed', inset:0, background:'rgba(0,0,0,0.72)',
+        backdropFilter:'blur(6px)', zIndex:200,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        animation:'fadeIn 0.15s ease',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width:720, maxHeight:'82vh', background:'var(--surface)',
+          borderRadius:12, border:'1px solid #333',
+          display:'flex', flexDirection:'column',
+          boxShadow:'0 32px 96px rgba(0,0,0,0.7)',
+        }}
+      >
+        {/* Modal header */}
+        <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10 }}>
+          <CoverArt artist={track.artist} idx={7} size={34} />
+          <div>
+            <div style={{ fontSize:13.5, fontWeight:700 }}>{track.name}</div>
+            <div style={{ fontSize:11, color:'var(--text-3)' }}>{track.artist} · Buscar video alternativo en YouTube</div>
+          </div>
+          <div style={{ flex:1 }} />
+          <button
+            onClick={onClose}
+            style={{ background:'none', color:'var(--text-3)', fontSize:18, cursor:'pointer', padding:'4px 8px', borderRadius:4, lineHeight:1 }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-3)'}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Search bar */}
+        <div style={{ padding:'10px 18px', borderBottom:'1px solid var(--border)', display:'flex', gap:8 }}>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && alert('Buscando: ' + query)}
+            style={{
+              flex:1, padding:'7px 12px', borderRadius:5, fontSize:12,
+              background:'var(--elevated)', border:'1px solid var(--border)',
+              color:'var(--text)',
+            }}
+            placeholder="Buscar en YouTube..."
+          />
+          <Btn variant="default" onClick={() => alert('Buscando: ' + query)} style={{ background:'#CC0000', color:'white', border:'none', padding:'7px 14px' }}>
+            <svg width="13" height="10" viewBox="0 0 13 10" fill="white"><path d="M5.5 0L13 5L5.5 10V0Z"/></svg>
+            Buscar
+          </Btn>
+        </div>
+
+        {/* Results */}
+        <div style={{ flex:1, overflow:'auto', padding:'10px 16px' }}>
+          <div style={{ fontSize:10, color:'var(--text-3)', letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:10 }}>
+            6 resultados · ordenados por relevancia
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            {YT_RESULTS.map((r, idx) => {
+              const isSel = selected === r.id;
+              return (
+                <div
+                  key={r.id}
+                  onClick={() => setSelected(r.id)}
+                  style={{
+                    display:'flex', alignItems:'center', gap:12,
+                    padding:'9px 11px', borderRadius:7, cursor:'pointer',
+                    background: isSel ? 'var(--accent-bg)' : 'var(--elevated)',
+                    border:`1px solid ${isSel ? 'rgba(29,185,84,0.4)' : 'transparent'}`,
+                    transition:'all 0.12s',
+                  }}
+                >
+                  <YtThumb size={88} idx={idx + 2} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:3 }}>
+                      {r.title}
+                    </div>
+                    <div style={{ fontSize:10.5, color:'var(--text-3)' }}>
+                      {r.channel} · {r.dur} · {r.views} vistas
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:7, flexShrink:0 }}>
+                    <ScoreBadge score={r.score} />
+                    {r.current && (
+                      <span style={{
+                        fontSize:9, padding:'2px 7px', borderRadius:3, fontWeight:700,
+                        background:'rgba(29,185,84,0.18)', color:'var(--accent)',
+                        letterSpacing:'0.05em',
+                      }}>
+                        ACTUAL
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'12px 18px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn onClick={onClose}>Cancelar</Btn>
+          <Btn variant="accent" onClick={() => { onSelectVideo(selected); onClose(); }}>
+            Usar este video
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Process Monitor ────────────────────────────────────────────────────── */
+const SCRIPTS = [
+  { id:'generate_report',  label:'generate_report.py',  desc:'Comparar Spotify vs teléfono' },
+  { id:'sync',             label:'sync.py',              desc:'Sync completo playlist → Android' },
+  { id:'enrich_metadata',  label:'enrich_metadata.py',   desc:'Actualizar metadatos MP3 masivo' },
+  { id:'download_missing', label:'download_missing.py',  desc:'Descargar desde reporte existente' },
+  { id:'smart_compare',    label:'smart_compare.py',     desc:'Comparación fuzzy avanzada' },
+  { id:'retry_failed',     label:'retry_failed.py',      desc:'Reintentar descargas fallidas' },
+  { id:'dry_run',          label:'dry_run.py',           desc:'Preview de cambios sin modificar' },
+  { id:'debug_song',       label:'debug_song.py',        desc:'Debug un track específico' },
+];
+
+const LOG_LEVEL_COLOR = { INFO:'#1DB954', WARNING:'#F59B23', ERROR:'#E22D44' };
+const LOG_MSG_COLOR   = { INFO:'#A8C9A8', WARNING:'#E0C87A', ERROR:'#FF8A9A' };
+
+function ProcessMonitorView() {
+  const [script, setScript] = useState('generate_report');
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [logs, setLogs] = useState(INIT_LOGS);
+  const logRef = useRef(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  const handleRun = useCallback(() => {
+    setRunning(true);
+    setProgress(0);
+    const scriptLabel = SCRIPTS.find(s => s.id === script)?.label;
+    const now = () => new Date().toLocaleTimeString('es-ES', { hour12:false });
+    setLogs([{ t:now(), lv:'INFO', msg:`Ejecutando ${scriptLabel}...` }]);
+
+    let p = 0;
+    timerRef.current = setInterval(() => {
+      p += 3 + Math.random() * 7;
+      if (p >= 100) {
+        p = 100;
+        clearInterval(timerRef.current);
+        setRunning(false);
+        setLogs(l => [...l, { t:now(), lv:'INFO', msg:`✓ ${scriptLabel} completado (${l.length + 1} operaciones)` }]);
+      }
+      setProgress(Math.min(100, Math.floor(p)));
+      const pool = LOG_POOL[Math.floor(Math.random() * LOG_POOL.length)];
+      setLogs(l => [...l.slice(-200), { ...pool, t:now() }]);
+    }, 700);
+  }, [script]);
+
+  const handleStop = () => {
+    clearInterval(timerRef.current);
+    setRunning(false);
+    const now = new Date().toLocaleTimeString('es-ES', { hour12:false });
+    setLogs(l => [...l, { t:now, lv:'WARNING', msg:'Proceso detenido por el usuario' }]);
+  };
+
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <h1 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', marginBottom:2 }}>Monitor de Procesos</h1>
+        <p style={{ color:'var(--text-3)', fontSize:11.5 }}>Ejecuta y visualiza los scripts Python en tiempo real</p>
+      </div>
+
+      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+        {/* Left: script picker */}
+        <div style={{ width:228, borderRight:'1px solid var(--border)', padding:'10px 8px', display:'flex', flexDirection:'column', gap:2, flexShrink:0, overflowY:'auto' }}>
+          <div style={{ fontSize:9.5, fontWeight:700, color:'var(--text-3)', letterSpacing:'0.08em', textTransform:'uppercase', padding:'4px 8px', marginBottom:4 }}>
+            Scripts
+          </div>
+          {SCRIPTS.map(s => {
+            const isSel = script === s.id;
+            return (
+              <div
+                key={s.id}
+                onClick={() => !running && setScript(s.id)}
+                style={{
+                  padding:'7px 10px', borderRadius:6,
+                  cursor: running ? 'not-allowed' : 'pointer',
+                  background: isSel ? 'var(--accent-bg)' : 'transparent',
+                  border:`1px solid ${isSel ? 'rgba(29,185,84,0.25)' : 'transparent'}`,
+                  opacity: running && !isSel ? 0.5 : 1,
+                  transition:'all 0.12s',
+                }}
+              >
+                <div style={{ fontSize:11.5, fontFamily:'monospace', color: isSel ? 'var(--accent)' : 'var(--text)', lineHeight:1.2 }}>
+                  {s.label}
+                </div>
+                <div style={{ fontSize:10, color:'var(--text-3)', marginTop:2 }}>{s.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right: terminal */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          {/* Toolbar */}
+          <div style={{ padding:'9px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:9, flexShrink:0 }}>
+            {running ? (
+              <Btn variant="red" small onClick={handleStop}>
+                <div style={{ width:8, height:8, background:'var(--red)', borderRadius:1 }} />
+                Detener
+              </Btn>
+            ) : (
+              <Btn variant="accent" small onClick={handleRun}>
+                <svg width="9" height="10" viewBox="0 0 9 10" fill="currentColor"><path d="M0 0L9 5L0 10V0Z"/></svg>
+                Ejecutar
+              </Btn>
+            )}
+
+            <Btn variant="ghost" small onClick={() => setLogs([])}>Limpiar</Btn>
+
+            {running && (
+              <div style={{ flex:1, display:'flex', alignItems:'center', gap:9 }}>
+                <div style={{ flex:1, height:3, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+                  <div style={{
+                    height:'100%', width:`${progress}%`,
+                    background:'var(--accent)', borderRadius:2,
+                    transition:'width 0.35s ease',
+                  }} />
+                </div>
+                <span style={{ fontSize:11, color:'var(--text-2)', fontFamily:'monospace', width:34, textAlign:'right' }}>{progress}%</span>
+                <div style={{ width:7, height:7, borderRadius:'50%', background:'var(--accent)', animation:'blink 0.9s infinite' }} />
+              </div>
+            )}
+
+            {!running && (
+              <span style={{ fontSize:10.5, color:'var(--text-3)', fontFamily:'monospace' }}>
+                {logs.length} líneas · {SCRIPTS.find(s => s.id === script)?.label}
+              </span>
+            )}
+          </div>
+
+          {/* Log output */}
+          <div
+            ref={logRef}
+            style={{
+              flex:1, overflow:'auto', padding:'10px 14px',
+              fontFamily:"'JetBrains Mono','Fira Code','Cascadia Code','Consolas',monospace",
+              fontSize:11.5, lineHeight:1.75,
+              background:'#090909',
+            }}
+          >
+            {logs.length === 0 ? (
+              <div style={{ color:'var(--text-3)', padding:'8px 0' }}>
+                $ Selecciona un script y presiona Ejecutar
+              </div>
+            ) : (
+              logs.map((line, idx) => (
+                <div key={idx} style={{ display:'flex', gap:12, minHeight:20 }}>
+                  <span style={{ color:'var(--text-3)', flexShrink:0, width:56 }}>{line.t}</span>
+                  <span style={{
+                    flexShrink:0, width:58,
+                    color: LOG_LEVEL_COLOR[line.lv] || 'var(--text-3)',
+                    fontWeight:700,
+                  }}>
+                    [{line.lv}]
+                  </span>
+                  <span style={{ color: LOG_MSG_COLOR[line.lv] || 'var(--text-2)', wordBreak:'break-word' }}>
+                    {line.msg}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Settings View ──────────────────────────────────────────────────────── */
+function SettingsView() {
+  const [cfg, setCfg] = useState({
+    spotifyId: '7c4d0a2f9e1b3ad8f2c5e9d1',
+    spotifySecret: '••••••••••••••••••••••••',
+    downloadFolder: '~/temp_downloads/',
+    phonePath: '/storage/emulated/0/snaptube/download/Snaptube Audio/',
+    playlistId: '37i9dQZF1DXcBWIGoYBM5M',
+    minScore: 75,
+    maxDuration: 8,
+    durationTolerance: 20,
+  });
+  const [showSecret, setShowSecret] = useState(false);
+  const [langs, setLangs] = useState({ JP:true, KR:true, EN:true, ES:true, CN:false, RU:false });
+  const [blacklist, setBlacklist] = useState([
+    { name:'Song Title Example', artist:'Artist Name' },
+    { name:'Annoying Radio Edit Version', artist:'Pop Artist Generic' },
+  ]);
+  const [newBl, setNewBl] = useState({ name:'', artist:'' });
+
+  const update = (key, val) => setCfg(c => ({ ...c, [key]:val }));
+  const toggleLang = lang => setLangs(l => ({ ...l, [lang]:!l[lang] }));
+
+  const addToBlacklist = () => {
+    if (newBl.name && newBl.artist) {
+      setBlacklist(b => [...b, { ...newBl }]);
+      setNewBl({ name:'', artist:'' });
+    }
+  };
+
+  const Field = ({ label, field, type, mono, hint }) => (
+    <div>
+      <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:5 }}>{label}</div>
+      <div style={{ position:'relative' }}>
+        <input
+          type={type === 'password' && !showSecret ? 'password' : 'text'}
+          value={cfg[field]}
+          onChange={e => update(field, e.target.value)}
+          style={{
+            width:'100%', padding:'7px 10px',
+            borderRadius:5, background:'var(--elevated)',
+            border:'1px solid var(--border)', color:'var(--text)',
+            fontSize:12, fontFamily: mono ? "monospace" : 'inherit',
+            paddingRight: type === 'password' ? 36 : 10,
+          }}
+          onFocus={e => e.target.style.borderColor = 'rgba(29,185,84,0.45)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
+        />
+        {type === 'password' && (
+          <button
+            onClick={() => setShowSecret(s => !s)}
+            style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', color:'var(--text-3)', fontSize:12, cursor:'pointer', lineHeight:1 }}
+          >
+            {showSecret ? '🙈' : '👁'}
+          </button>
+        )}
+      </div>
+      {hint && <div style={{ fontSize:10, color:'var(--text-3)', marginTop:4 }}>{hint}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+      <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <h1 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', marginBottom:2 }}>Configuración & Filtros</h1>
+        <p style={{ color:'var(--text-3)', fontSize:11.5 }}>Credenciales, rutas, umbrales y preferencias de filtrado</p>
+      </div>
+
+      <div style={{ flex:1, overflow:'auto', padding:'20px 22px' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:28, maxWidth:920 }}>
+
+          {/* === Config column === */}
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:16 }}>
+              Configuración
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:13 }}>
+              <Field label="Spotify Client ID" field="spotifyId" />
+              <Field label="Spotify Client Secret" field="spotifySecret" type="password" />
+              <Field label="Playlist ID" field="playlistId" hint="ID de la playlist de Spotify a sincronizar" />
+
+              <div style={{ height:1, background:'var(--border)', margin:'2px 0' }} />
+
+              <Field label="Directorio descarga temporal" field="downloadFolder" />
+              <Field label="Ruta en teléfono (ADB)" field="phonePath" mono hint="Directorio donde se encuentran los MP3 en el Android" />
+
+              <div style={{ height:1, background:'var(--border)', margin:'2px 0' }} />
+
+              {/* Score threshold */}
+              <div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:7 }}>
+                  <span style={{ fontSize:10.5, color:'var(--text-3)' }}>Score mínimo fuzzy match</span>
+                  <span style={{ fontSize:12, fontFamily:'monospace', color:scoreColor(cfg.minScore), fontWeight:700 }}>{cfg.minScore}%</span>
+                </div>
+                <input
+                  type="range" min={40} max={95} value={cfg.minScore}
+                  onChange={e => update('minScore', +e.target.value)}
+                  style={{ width:'100%', accentColor:'var(--accent)', cursor:'pointer' }}
+                />
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:3 }}>
+                  <span style={{ fontSize:9.5, color:'var(--text-3)' }}>40% — permisivo</span>
+                  <span style={{ fontSize:9.5, color:'var(--text-3)' }}>95% — muy estricto</span>
+                </div>
+              </div>
+
+              {/* Duration fields */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:6 }}>
+                    Duración máxima ({cfg.maxDuration} min)
+                  </div>
+                  <input
+                    type="range" min={3} max={15} value={cfg.maxDuration}
+                    onChange={e => update('maxDuration', +e.target.value)}
+                    style={{ width:'100%', accentColor:'var(--accent)', cursor:'pointer' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:6 }}>
+                    Tolerancia duración (±{cfg.durationTolerance}s)
+                  </div>
+                  <input
+                    type="range" min={5} max={60} value={cfg.durationTolerance}
+                    onChange={e => update('durationTolerance', +e.target.value)}
+                    style={{ width:'100%', accentColor:'var(--accent)', cursor:'pointer' }}
+                  />
+                </div>
+              </div>
+
+              <Btn variant="accent" style={{ alignSelf:'flex-start', marginTop:4 }} onClick={() => alert('Configuración guardada')}>
+                Guardar configuración
+              </Btn>
+            </div>
+          </div>
+
+          {/* === Filters column === */}
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:16 }}>
+              Filtros de Descarga
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {/* Language toggles */}
+              <div>
+                <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:9 }}>Idiomas incluidos</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                  {Object.entries(langs).map(([lang, on]) => {
+                    const c = LANG_COLOR[lang] || '#888';
+                    return (
+                      <div
+                        key={lang}
+                        onClick={() => toggleLang(lang)}
+                        style={{
+                          padding:'5px 14px', borderRadius:4, cursor:'pointer',
+                          background: on ? `${c}1A` : 'var(--elevated)',
+                          border:`1px solid ${on ? `${c}55` : 'var(--border)'}`,
+                          color: on ? c : 'var(--text-3)',
+                          fontSize:12, fontWeight:700, fontFamily:'monospace',
+                          transition:'all 0.15s', userSelect:'none',
+                        }}
+                      >
+                        {lang}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ height:1, background:'var(--border)' }} />
+
+              {/* Blacklist */}
+              <div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:9 }}>
+                  <span style={{ fontSize:10.5, color:'var(--text-3)' }}>Blacklist ({blacklist.length} canciones)</span>
+                </div>
+
+                {/* Add form */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:6, marginBottom:9 }}>
+                  <input
+                    value={newBl.name}
+                    onChange={e => setNewBl(b => ({ ...b, name:e.target.value }))}
+                    placeholder="Nombre canción"
+                    style={{ padding:'6px 9px', borderRadius:4, background:'var(--elevated)', border:'1px solid var(--border)', color:'var(--text)', fontSize:11 }}
+                    onFocus={e => e.target.style.borderColor = 'rgba(29,185,84,0.4)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                  />
+                  <input
+                    value={newBl.artist}
+                    onChange={e => setNewBl(b => ({ ...b, artist:e.target.value }))}
+                    placeholder="Artista"
+                    style={{ padding:'6px 9px', borderRadius:4, background:'var(--elevated)', border:'1px solid var(--border)', color:'var(--text)', fontSize:11 }}
+                    onFocus={e => e.target.style.borderColor = 'rgba(29,185,84,0.4)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                  />
+                  <Btn variant="green" small onClick={addToBlacklist}>+ Add</Btn>
+                </div>
+
+                <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:150, overflow:'auto' }}>
+                  {blacklist.map((item, idx) => (
+                    <div key={idx} style={{
+                      display:'flex', alignItems:'center', gap:8,
+                      padding:'6px 10px', borderRadius:5,
+                      background:'var(--elevated)', border:'1px solid var(--border)',
+                    }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:11, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</div>
+                        <div style={{ fontSize:10, color:'var(--text-3)' }}>{item.artist}</div>
+                      </div>
+                      <button
+                        onClick={() => setBlacklist(b => b.filter((_,i) => i !== idx))}
+                        style={{ background:'none', color:'var(--text-3)', fontSize:13, cursor:'pointer', padding:'1px 4px', lineHeight:1 }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-3)'}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ height:1, background:'var(--border)' }} />
+
+              {/* Quick presets */}
+              <div>
+                <div style={{ fontSize:10.5, color:'var(--text-3)', marginBottom:9 }}>Presets de filtrado</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                  {[
+                    { label:'Solo Anime / JP',      desc:'Idioma: JP · Score ≥ 80 · Max 6 min',            action:() => { setLangs({JP:true,KR:false,EN:false,ES:false,CN:false,RU:false}); update('minScore',80); update('maxDuration',6); }},
+                    { label:'Kpop (KR + EN)',        desc:'Idioma: KR, EN · Score ≥ 85',                    action:() => { setLangs({JP:false,KR:true,EN:true,ES:false,CN:false,RU:false}); update('minScore',85); }},
+                    { label:'Latin (ES + EN)',       desc:'Idioma: ES, EN · Score ≥ 72 · Max 5 min',        action:() => { setLangs({JP:false,KR:false,EN:true,ES:true,CN:false,RU:false}); update('minScore',72); update('maxDuration',5); }},
+                    { label:'Todo disponible',       desc:'Todos los idiomas · Score ≥ 70',                  action:() => { setLangs({JP:true,KR:true,EN:true,ES:true,CN:true,RU:true}); update('minScore',70); }},
+                  ].map(preset => (
+                    <button
+                      key={preset.label}
+                      onClick={preset.action}
+                      style={{
+                        padding:'8px 12px', borderRadius:5, textAlign:'left', cursor:'pointer',
+                        background:'var(--elevated)', border:'1px solid var(--border)',
+                        display:'flex', flexDirection:'column', gap:1, transition:'all 0.12s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.borderColor = 'rgba(29,185,84,0.3)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--elevated)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                    >
+                      <span style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>{preset.label}</span>
+                      <span style={{ fontSize:10, color:'var(--text-3)' }}>{preset.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── App root ───────────────────────────────────────────────────────────── */
+function App() {
+  const [view, setView]         = useState('compare');
+  const [queue, setQueue]       = useState(INITIAL_QUEUE);
+  const [ytTrack, setYtTrack]   = useState(null);
+  const [ytItem, setYtItem]     = useState(null);
+
+  const pendingCount = queue.filter(q => q.status === 'pending').length;
+
+  const handleAddToQueue = useCallback((track) => {
+    setQueue(q => {
+      if (q.some(item => item.trackId === track.id)) return q;
+      return [...q, {
+        id: q.length + 10,
+        trackId: track.id,
+        ytTitle: `${track.artist} - ${track.name} (Official Audio)`,
+        ytChannel: 'YouTube AutoSearch',
+        ytDur: track.dur,
+        ytViews: '—',
+        ytScore: 0,
+        status: 'pending',
+      }];
+    });
+    setView('queue');
+  }, []);
+
+  const handleYtSearch = useCallback((track, item) => {
+    setYtTrack(track);
+    setYtItem(item);
+  }, []);
+
+  const handleSelectVideo = useCallback((ytId) => {
+    if (!ytItem) return;
+    const result = YT_RESULTS.find(r => r.id === ytId);
+    if (!result) return;
+    setQueue(q => q.map(item =>
+      item.id === ytItem.id
+        ? { ...item, ytTitle:result.title, ytChannel:result.channel, ytDur:result.dur, ytViews:result.views, ytScore:result.score }
+        : item
+    ));
+  }, [ytItem]);
+
+  const views = {
+    compare:  <CompareView onAddToQueue={handleAddToQueue} />,
+    queue:    <DownloadQueueView queue={queue} setQueue={setQueue} onYtSearch={handleYtSearch} />,
+    monitor:  <ProcessMonitorView />,
+    settings: <SettingsView />,
+  };
+
+  return (
+    <>
+      <Sidebar active={view} setActive={setView} queueCount={pendingCount} />
+      <div style={{ flex:1, overflow:'hidden', background:'var(--surface)' }}>
+        {views[view]}
+      </div>
+      {ytTrack && (
+        <YouTubeSearchModal
+          track={ytTrack}
+          onClose={() => { setYtTrack(null); setYtItem(null); }}
+          onSelectVideo={handleSelectVideo}
+        />
+      )}
+    </>
+  );
+}
+
+/* ─── Mount ──────────────────────────────────────────────────────────────── */
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
