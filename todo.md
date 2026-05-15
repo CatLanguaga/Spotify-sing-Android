@@ -12,52 +12,65 @@
 
 ---
 
-## Fase 1 — Validar diseño
+## Fase 1 — Validar diseño ✅
 
-- [ ] Abrir `gui/SpotifySyncManager.html` en el navegador
-- [ ] Revisar vista Compare: tabla Spotify ↔ Teléfono
-- [ ] Revisar vista Cola: aprobar / rechazar / buscar alternativa
-- [ ] Revisar modal YouTube Search
-- [ ] Revisar vista Monitor: selector de scripts + logs
-- [ ] Revisar vista Settings: formulario + filtros + blacklist
-- [ ] Anotar cambios de UX antes de pasar al backend
-
----
-
-## Fase 2 — Backend FastAPI
-
-- [ ] `pip install fastapi uvicorn` en el entorno del proyecto
-- [ ] Crear `gui/backend/main.py` con la app FastAPI base
-- [ ] Crear `GET /api/config` — leer `~/.spotifytoyoutube/config.json`
-- [ ] Crear `POST /api/config` — guardar config
-- [ ] Crear `GET /api/compare` — ejecutar `smart_compare.py` y retornar JSON
-- [ ] Crear `GET /api/queue` — cola en memoria (o archivo JSON)
-- [ ] Crear `PATCH /api/queue/{id}` — aprobar / rechazar item
-- [ ] Crear `GET /api/youtube/search?q=` — buscar via `youtube_client.py`
-- [ ] Crear `POST /api/scripts/run` — ejecutar script de `/tools/`
-- [ ] Crear `WS /ws/logs` — stream de stdout en tiempo real via WebSocket
+- [x] Abrir `gui/SpotifySyncManager.html` en el navegador
+- [x] Revisar vista Compare: tabla Spotify ↔ Teléfono
+- [x] Revisar vista Cola: aprobar / rechazar / buscar alternativa
+- [x] Revisar modal YouTube Search
+- [x] Revisar vista Monitor: selector de scripts + logs
+- [x] Revisar vista Settings: formulario + filtros + blacklist
+- [x] Anotar cambios de UX antes de pasar al backend
 
 ---
 
-## Fase 3 — Frontend React
+## Fase 2 — Backend FastAPI ✅
 
-- [ ] Inicializar proyecto Vite + React + TypeScript en `gui/frontend/`
-- [ ] Migrar componentes base del prototipo (LangBadge, ScoreBadge, CoverArt, Btn)
-- [ ] Migrar Sidebar con navegación funcional
-- [ ] Migrar CompareView — conectar a `GET /api/compare`
-- [ ] Migrar DownloadQueueView — conectar a `GET/PATCH /api/queue`
-- [ ] Migrar YouTubeSearchModal — conectar a `GET /api/youtube/search`
-- [ ] Migrar ProcessMonitorView — conectar WebSocket a `/ws/logs`
-- [ ] Migrar SettingsView — conectar a `GET/POST /api/config`
+- [x] `pip install fastapi uvicorn` en el entorno del proyecto
+- [x] Crear `gui/backend/main.py` con la app FastAPI base
+- [x] Crear `GET /api/config` — leer `~/.spotifytoyoutube/config.json`
+- [x] Crear `POST /api/config` — guardar config
+- [x] Crear `GET /api/compare` — ejecutar `smart_compare.py` y retornar JSON
+- [x] Crear `GET /api/queue` — cola en memoria (o archivo JSON)
+- [x] Crear `PATCH /api/queue/{id}` — aprobar / rechazar item
+- [x] Crear `GET /api/youtube/search?q=` — buscar via `youtube_client.py`
+- [x] Crear `POST /api/scripts/run` — ejecutar script de `/tools/`
+- [x] Crear `WS /ws/logs` — stream de stdout en tiempo real via WebSocket
+
+---
+
+## Fase 3 — Frontend React ✅
+
+- [x] Inicializar proyecto Vite + React + TypeScript en `gui/frontend/`
+- [x] Migrar componentes base del prototipo (LangBadge, ScoreBadge, CoverArt, Btn)
+- [x] Migrar Sidebar con navegación funcional
+- [x] Migrar CompareView — conectar a `GET /api/spotify/playlist/{id}`
+- [x] Migrar DownloadQueueView — conectar a `GET/PATCH /api/queue`
+- [x] Migrar ProcessMonitorView — conectar WebSocket a `/ws/logs`
+- [x] Migrar SettingsView — conectar a `GET/POST /api/config`
 
 ---
 
 ## Fase 4 — Integración real-time
 
-- [ ] Parsear `[X/Y]` en logs para actualizar la barra de progreso real
-- [ ] Auto-refrescar vista Compare cuando termina un script
-- [ ] Toast notification cuando termina una descarga
-- [ ] Indicador ADB en sidebar refleja estado real del dispositivo
+- [x] Parsear `[X/Y]` en logs para actualizar la barra de progreso real
+- [x] YouTubeSearchModal — conectar a `GET /api/youtube/search` desde QueueView
+- [x] Auto-refrescar vista Compare cuando termina un script
+- [x] Toast notification cuando termina una descarga
+- [x] Indicador ADB en sidebar refleja estado real del dispositivo
+
+---
+
+## Fase 4.5 — UX y layout ✅
+
+- [x] Sidebar responsive: 200px con etiquetas en desktop (≥768px), 60px solo íconos en móvil
+- [x] Layout corregido para llenar pantalla completa en 1920×1080 (`flex:1` + `minHeight:0` en todas las vistas)
+- [x] `GET /api/adb/status` — endpoint real que corre `adb devices` y detecta dispositivo conectado
+- [x] Campo **Playlist ID** en Settings — configurable por el usuario, guardado en `config.json`
+- [x] CompareView usa el `playlist_id` de Settings en vez de tenerlo hardcodeado
+- [x] Control de rango en CompareView: seleccionar tracks N–M de la playlist (ej. 200–330)
+- [x] Backend pagina internamente si el rango supera 100 (límite de la Spotify API)
+- [x] Columna `#` en tabla de Compare muestra el número de track real dentro de la playlist
 
 ---
 
@@ -78,5 +91,5 @@
 | `gui/SpotifySyncManager.html` | Prototipo interactivo (abrir en browser) |
 | `gui/DESIGN.md` | Sistema de diseño completo |
 | `plan.md` | Plan detallado con arquitectura y stack |
-| `gui/backend/main.py` | (por crear) Servidor FastAPI |
-| `gui/frontend/` | (por crear) App React/Vite |
+| `gui/backend/main.py` | Servidor FastAPI |
+| `gui/frontend/` | App React/Vite (Vite dev server en localhost:5173) |

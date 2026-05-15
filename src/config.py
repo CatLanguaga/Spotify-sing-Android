@@ -17,16 +17,17 @@ class ConfigManager:
         self.config_file = self.config_dir / 'config.json'
         self.default_download_folder = str(Path.home() / 'Music' / 'SpotifyYT')
         
-    def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None):
+    def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None, playlist_id=None):
         """Save API credentials and settings - YouTube API no longer needed"""
         existing = self.load_config() or {}
-        
+
         config = {
             'spotify_client_id': spotify_client_id,
             'spotify_client_secret': spotify_client_secret,
-            'download_folder': download_folder or existing.get('download_folder', self.default_download_folder)
+            'download_folder': download_folder or existing.get('download_folder', self.default_download_folder),
+            'playlist_id': playlist_id if playlist_id is not None else existing.get('playlist_id', ''),
         }
-        
+
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     
