@@ -85,6 +85,67 @@
 
 ---
 
+## Bugs pendientes 🐛
+
+### B1 — Ventana CMD aparece al correr el .exe
+**Causa:** Todos los `subprocess.run` / `subprocess.Popen` / `asyncio.create_subprocess_exec`
+del backend no tienen `creationflags=subprocess.CREATE_NO_WINDOW`. En un exe sin consola
+(`console=False`) Windows abre una CMD visible por cada proceso hijo.
+
+**Archivos afectados:**
+- `gui/backend/routes/adb.py` — `subprocess.run` en `_list_serials`, `_get_prop`, `adb_scan`
+- `gui/backend/routes/compare.py` — `subprocess.run`
+- `gui/backend/ws_runner.py` — `asyncio.create_subprocess_exec` (usar `creationflags`)
+- También `ws_runner.py` línea 9: `TOOLS_DIR` usa `Path(__file__)` — rompe en el .exe
+
+**Fix:** Agregar en todos los subprocess del backend:
+```python
+import subprocess, sys
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+# luego en cada llamada:
+subprocess.run([...], creationflags=_NO_WINDOW, ...)
+```
+Para asyncio: `proc = await asyncio.create_subprocess_exec(..., creationflags=_NO_WINDOW)`
+
+---
+
+### B2 — CompareView no muestra comparación con el teléfono
+**Causa:** `CompareView.tsx` llama a `/api/spotify/playlist/{id}` que solo trae tracks de
+Spotify. El endpoint `/api/compare` que corre `smart_compare.py` (compara con ADB) existe
+en el backend pero nunca se conectó al frontend. La tabla no tiene columna de estado
+en el teléfono (✓ ya descargado / ✗ falta / ~ parcial).
+
+**Fix:**
+- Conectar CompareView al endpoint `/api/compare` (o añadir columna de status al llamado
+  actual a `/api/spotify/playlist`).
+- Agregar columna "En teléfono" en la tabla con badge de estado.
+- Los botones "+ Queue" solo deben estar activos / visibles para tracks que faltan.
+
+---
+
+### B3 — Botón "+ Queue" es placeholder / flujo de cola incorrecto
+**Causa:** Los botones `+ Queue` en `CompareView.tsx` no tienen `onClick` conectado.
+Según el usuario, al agregar a la cola debería abrirse un panel/modal separado
+(no la misma vista de Compare) con opciones antes de confirmar.
+
+**Fix:**
+- Conectar `+ Queue` a `POST /api/queue` con los datos del track.
+- Al hacer click abrir un modal "Agregar a cola" con opciones de descarga
+  (formato, calidad) antes de confirmar el agregado.
+
+---
+
+### B4 — Queue view sin opciones de descarga
+**Causa:** El modal de confirmación de descarga en `QueueView.tsx` llama a
+`download_missing.py` sin parámetros de formato ni calidad.
+
+**Fix:**
+- Agregar al modal de confirmación: selector de formato (mp3 / m4a / opus),
+  calidad (128 / 192 / 320 kbps), y carpeta destino (pre-rellenada desde config).
+- Pasar esos parámetros como args al script de descarga.
+
+---
+
 ## Referencia rápida
 
 | Archivo | Qué es |
