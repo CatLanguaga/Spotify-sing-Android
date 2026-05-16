@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -5,7 +6,8 @@ from pydantic import BaseModel
 
 router = APIRouter(tags=["scripts"])
 
-TOOLS_DIR = Path(__file__).parent.parent.parent.parent / "tools"
+_ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).parent.parent.parent.parent))
+TOOLS_DIR = _ROOT / "tools"
 
 ALLOWED_SCRIPTS = {
     "smart_compare.py",

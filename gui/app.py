@@ -2,8 +2,11 @@
 Punto de entrada de escritorio — arranca FastAPI en un thread y abre
 una ventana nativa con pywebview apuntando a http://localhost:8000.
 
-Uso:
+Uso (desarrollo):
     python gui/app.py
+
+Uso (exe):
+    Spotify Sync Manager.exe   (generado con build.ps1)
 
 Requisitos:
     pip install pywebview
@@ -17,14 +20,25 @@ import threading
 import time
 from pathlib import Path
 
-# Signal to main.py that no debe abrir el browser
-os.environ["SPOTIFY_SYNC_TAURI"] = "1"
+# ── Resolver la raíz del proyecto ─────────────────────────────────────────
+# PyInstaller congela el app en una carpeta; sys._MEIPASS apunta a ella.
+# En modo script, la raíz es dos niveles arriba de este archivo.
+if getattr(sys, "frozen", False):
+    ROOT = Path(sys._MEIPASS)           # type: ignore[attr-defined]
+else:
+    ROOT = Path(__file__).resolve().parent.parent
 
-# Asegurar que los imports de src/ funcionen
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Exportar la raíz para que el backend y las rutas la usen.
+os.environ["SPOTIFY_SYNC_ROOT"]  = str(ROOT)
+os.environ["SPOTIFY_SYNC_TAURI"] = "1"   # evita que el backend abra el browser
 
+# Añadir la raíz al path para que los imports de src/ funcionen.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# ── Imports que dependen de que ROOT esté en sys.path ─────────────────────
 import uvicorn
-import webview
+import webview  # noqa: E402  (orden intencional)
 
 
 def _wait_for_port(port: int, timeout: float = 20.0) -> bool:
@@ -39,17 +53,13 @@ def _wait_for_port(port: int, timeout: float = 20.0) -> bool:
 
 
 def _run_server() -> None:
-    uvicorn.run(
-        "gui.backend.main:app",
-        host="127.0.0.1",
-        port=8000,
-        log_level="warning",
-        # reload=False para que no spawne procesos extra
-    )
+    # Importar el app aquí (después de que ROOT esté en sys.path).
+    from gui.backend.main import app as fastapi_app
+    uvicorn.run(fastapi_app, host="127.0.0.1", port=8000, log_level="warning")
 
 
 def main() -> None:
-    dist = Path(__file__).parent / "frontend" / "dist"
+    dist = ROOT / "gui" / "frontend" / "dist"
     if not dist.exists():
         print(
             "[app] AVISO: gui/frontend/dist/ no existe.\n"
@@ -59,18 +69,17 @@ def main() -> None:
         )
         sys.exit(1)
 
-    # Arrancar el backend en background
     server_thread = threading.Thread(target=_run_server, daemon=True)
     server_thread.start()
 
-    print("[app] Esperando que el backend esté listo...", flush=True)
+    print("[app] Esperando backend...", flush=True)
     if not _wait_for_port(8000):
         print("[app] ERROR: el backend no respondió en 20 segundos.")
         sys.exit(1)
 
-    print("[app] Backend listo — abriendo ventana.", flush=True)
+    print("[app] Listo — abriendo ventana.", flush=True)
 
-    window = webview.create_window(
+    webview.create_window(
         title="Spotify Sync Manager",
         url="http://localhost:8000",
         width=1280,
@@ -78,8 +87,6 @@ def main() -> None:
         min_size=(960, 600),
         text_select=False,
     )
-
-    # Al cerrar la ventana el thread del servidor (daemon=True) se mata solo.
     webview.start(debug=False)
 
 

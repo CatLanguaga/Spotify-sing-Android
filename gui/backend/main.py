@@ -8,7 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# SPOTIFY_SYNC_ROOT se setea desde app.py (desarrollo y exe).
+# Fallback para cuando se corre main.py directamente en dev.
+_ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).parent.parent.parent))
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from gui.backend.routes import adb, compare, config, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
@@ -40,13 +44,13 @@ app.include_router(scripts.router, prefix="/api")
 app.include_router(spotify.router, prefix="/api")
 app.include_router(ws_router)
 
-stitch_dir = Path(__file__).parent.parent / "stitch"
+stitch_dir = _ROOT / "gui" / "stitch"
 if stitch_dir.exists():
     app.mount("/stitch", StaticFiles(directory=stitch_dir), name="stitch")
 
 # Serve the built React frontend when the dist/ folder exists (production / Tauri mode).
 # Must be mounted last so API routes take priority.
-frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+frontend_dist = _ROOT / "gui" / "frontend" / "dist"
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
