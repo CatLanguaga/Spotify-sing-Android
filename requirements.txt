@@ -1,6 +1,7 @@
-kivy==2.3.0
-kivymd==1.1.1
 spotipy==2.23.0
 google-api-python-client==2.108.0
 requests==2.31.0
 pytubefix>=6.0.0
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pywebview>=5.0.0
