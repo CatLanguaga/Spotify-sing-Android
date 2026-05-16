@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import { fetcher } from '../api/client'
 import { LangBadge } from '../components/LangBadge'
+import { SkeletonRow } from '../components/Skeleton'
 import type { SpotifyTrack } from '../api/types'
 
 interface PlaylistResponse {
@@ -77,7 +78,6 @@ export function CompareView({ refreshSignal }: Props) {
             Compare Library
           </h1>
 
-          {/* Range + refresh — right-aligned, all inline */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: '#555' }}>Tracks</span>
             <input
@@ -103,10 +103,7 @@ export function CompareView({ refreshSignal }: Props) {
             >
               Apply
             </button>
-
-            {/* Divider */}
             <div style={{ width: 1, height: 18, background: '#2A2A2A' }} />
-
             <button
               onClick={() => mutate()}
               disabled={isLoading}
@@ -127,13 +124,13 @@ export function CompareView({ refreshSignal }: Props) {
       </div>
 
       {/* Stat strip */}
-      {data && (
+      {data && !isLoading && (
         <div style={{ display: 'flex', gap: 8, padding: '10px 20px', borderBottom: '1px solid #1a1a1a' }}>
           {[
-            { label: 'FETCHED',  value: data.count,                           color: '#fff'    },
+            { label: 'FETCHED',     value: data.count,                        color: '#fff'    },
             { label: 'IN PLAYLIST', value: data.info?.total_tracks ?? '—',    color: '#1DB954' },
-            { label: 'FROM',     value: range.from,                           color: '#74B9FF' },
-            { label: 'TO',       value: range.from + data.count - 1,          color: '#74B9FF' },
+            { label: 'FROM',        value: range.from,                        color: '#74B9FF' },
+            { label: 'TO',          value: range.from + data.count - 1,       color: '#74B9FF' },
           ].map(({ label, value, color }) => (
             <div key={label} style={{
               background: '#1A1A1A', border: '1px solid #2A2A2A',
@@ -148,15 +145,27 @@ export function CompareView({ refreshSignal }: Props) {
 
       {/* Table */}
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {isLoading && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>Loading tracks {range.from}–{range.to}...</div>
-        )}
         {error && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#E22D44' }}>
-            Error: {error.message}
+          <div style={{
+            margin: 24, padding: '14px 18px',
+            background: 'rgba(226,45,68,0.06)', border: '1px solid rgba(226,45,68,0.25)',
+            borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>⚠</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#E22D44' }}>Failed to load tracks</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{error.message}</div>
+            </div>
+            <button
+              onClick={() => mutate()}
+              style={{ marginLeft: 'auto', ...btn('#B3B3B3', '#1A1A1A', '#2A2A2A'), padding: '5px 12px' }}
+            >
+              Retry
+            </button>
           </div>
         )}
-        {data && (
+
+        {(isLoading || data) && (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #2A2A2A' }}>
@@ -170,40 +179,43 @@ export function CompareView({ refreshSignal }: Props) {
               </tr>
             </thead>
             <tbody>
-              {data.tracks.map((track, i) => (
-                <tr
-                  key={track.spotify_id || i}
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.1s' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#222')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <td style={{ padding: '8px 16px', fontSize: 11, color: '#555', fontFamily: 'monospace', width: 40 }}>
-                    {range.from + i}
-                  </td>
-                  <td style={{ padding: '8px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {track.album_art_url
-                        ? <img src={track.album_art_url} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }} />
-                        : <div style={{ width: 32, height: 32, borderRadius: 4, background: '#2A2A2A' }} />
-                      }
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#fff', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {track.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '8px 16px', fontSize: 11, color: '#B3B3B3' }}>{track.artist}</td>
-                  <td style={{ padding: '8px 16px' }}><LangBadge lang={track.language} /></td>
-                  <td style={{ padding: '8px 16px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
-                    {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
-                  </td>
-                  <td style={{ padding: '8px 16px' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button style={btn('#1DB954', 'rgba(29,185,84,0.10)', 'rgba(29,185,84,0.3)')}>+ Queue</button>
-                      <button style={btn('#B3B3B3', '#1A1A1A', '#2A2A2A')}>Search Alt</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {isLoading
+                ? Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                : data!.tracks.map((track, i) => (
+                  <tr
+                    key={track.spotify_id || i}
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.1s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#222')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <td style={{ padding: '8px 16px', fontSize: 11, color: '#555', fontFamily: 'monospace', width: 40 }}>
+                      {range.from + i}
+                    </td>
+                    <td style={{ padding: '8px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {track.album_art_url
+                          ? <img src={track.album_art_url} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }} />
+                          : <div style={{ width: 32, height: 32, borderRadius: 4, background: '#2A2A2A' }} />
+                        }
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#fff', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {track.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 16px', fontSize: 11, color: '#B3B3B3' }}>{track.artist}</td>
+                    <td style={{ padding: '8px 16px' }}><LangBadge lang={track.language} /></td>
+                    <td style={{ padding: '8px 16px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
+                      {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+                    </td>
+                    <td style={{ padding: '8px 16px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button style={btn('#1DB954', 'rgba(29,185,84,0.10)', 'rgba(29,185,84,0.3)')}>+ Queue</button>
+                        <button style={btn('#B3B3B3', '#1A1A1A', '#2A2A2A')}>Search Alt</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              }
             </tbody>
           </table>
         )}

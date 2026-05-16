@@ -14,6 +14,9 @@ reports/
 # Config local con credenciales (se guarda en ~/.spotifytoyoutube/)
 *.json
 !data/blacklist.json
+!gui/frontend/package.json
+!gui/frontend/tsconfig.json
+!gui/frontend/tsconfig.app.json
 
 # Entornos virtuales
 venv/

@@ -74,12 +74,13 @@
 
 ---
 
-## Fase 5 — Pulido y empaquetado
+## Fase 5 — Pulido y empaquetado ✅
 
-- [ ] Loading states en todas las vistas (skeleton / spinner)
-- [ ] Manejo de errores (API caída, ADB desconectado, rate limit YouTube)
-- [ ] Confirmación antes de descargar N tracks
-- [ ] Arranque automático del browser al correr `python gui/backend/main.py`
+- [x] Loading states en todas las vistas (skeleton shimmer en tabla Compare, cards Queue, campos Settings)
+- [x] Manejo de errores (error banner con retry en Compare y Queue, banner backend offline en App)
+- [x] Confirmación antes de descargar N tracks (modal con conteo de tracks aprobados)
+- [x] Arranque automático del browser al correr `python gui/backend/main.py`
+- [x] Búsqueda automática de dispositivo Android (polling ADB cada 5s + modal de confirmación con modelo y serial)
 - [ ] (Opcional) Empaquetar como app de escritorio con Tauri
 
 ---

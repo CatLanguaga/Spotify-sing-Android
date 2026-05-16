@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import { Sidebar } from './components/Sidebar'
 import { ToastProvider, useToast } from './components/Toast'
+import { AdbConnectModal } from './components/AdbConnectModal'
 import { CompareView } from './views/CompareView'
 import { QueueView } from './views/QueueView'
 import { MonitorView } from './views/MonitorView'
@@ -10,16 +11,32 @@ import { fetcher } from './api/client'
 
 type View = 'compare' | 'queue' | 'monitor' | 'settings'
 
+interface AdbStatus {
+  connected: boolean
+  device: { serial: string; model: string } | null
+}
+
 function AppInner() {
   const [view, setView] = useState<View>('compare')
   const [compareRefreshSignal, setCompareRefreshSignal] = useState(0)
+  const [pendingDevice, setPendingDevice] = useState<AdbStatus['device']>(null)
   const { toast } = useToast()
 
-  const { data: adbStatus } = useSWR<{ connected: boolean }>(
+  const { data: adbStatus, error: adbError } = useSWR<AdbStatus>(
     '/adb/status',
-    (u: string) => fetcher<{ connected: boolean }>(u).catch(() => ({ connected: false })),
+    (u: string) => fetcher<AdbStatus>(u).catch(() => ({ connected: false, device: null })),
     { refreshInterval: 5000 },
   )
+
+  // Detect false → true transitions and prompt confirmation
+  const prevConnected = useRef<boolean | undefined>(undefined)
+  useEffect(() => {
+    const curr = adbStatus?.connected ?? false
+    if (prevConnected.current === false && curr === true && adbStatus?.device) {
+      setPendingDevice(adbStatus.device)
+    }
+    prevConnected.current = curr
+  }, [adbStatus])
 
   const handleScriptComplete = useCallback((script: string) => {
     const label = script.replace('.py', '')
@@ -29,21 +46,55 @@ function AppInner() {
     }
   }, [toast])
 
+  const confirmDevice = () => {
+    toast(`Connected: ${pendingDevice?.model}`, 'success')
+    setPendingDevice(null)
+  }
+
+  const backendOffline = adbError !== undefined && adbStatus === undefined
+
   const renderView = () => {
     switch (view) {
       case 'compare':  return <CompareView refreshSignal={compareRefreshSignal} />
-      case 'queue':    return <QueueView />
+      case 'queue':    return <QueueView onDownloadComplete={() => toast('Download started', 'info')} />
       case 'monitor':  return <MonitorView onScriptComplete={handleScriptComplete} />
       case 'settings': return <SettingsView />
     }
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh', background: '#0D0D0D', overflow: 'hidden' }}>
-      <Sidebar active={view} onNav={setView} adbConnected={adbStatus?.connected ?? false} />
-      <main style={{ flex: 1, minWidth: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {renderView()}
-      </main>
+    <div style={{ display: 'flex', width: '100%', height: '100vh', background: '#0D0D0D', overflow: 'hidden', flexDirection: 'column' }}>
+      {/* Backend offline banner */}
+      {backendOffline && (
+        <div style={{
+          background: '#1A0A0A', borderBottom: '1px solid rgba(226,45,68,0.3)',
+          padding: '7px 20px', display: 'flex', alignItems: 'center', gap: 8,
+          fontSize: 12, color: '#E22D44', flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 14 }}>⚠</span>
+          Backend offline — start the server with <code style={{ background: '#2A1010', padding: '1px 6px', borderRadius: 3, fontSize: 11 }}>python gui/backend/main.py</code>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <Sidebar
+          active={view}
+          onNav={setView}
+          adbConnected={adbStatus?.connected ?? false}
+          adbScanning={adbStatus === undefined && !adbError}
+        />
+        <main style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {renderView()}
+        </main>
+      </div>
+
+      {pendingDevice && (
+        <AdbConnectModal
+          device={pendingDevice}
+          onConfirm={confirmDevice}
+          onDismiss={() => setPendingDevice(null)}
+        />
+      )}
     </div>
   )
 }

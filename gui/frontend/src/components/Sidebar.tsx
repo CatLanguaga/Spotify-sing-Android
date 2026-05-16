@@ -13,16 +13,23 @@ interface Props {
   active: View
   onNav: (v: View) => void
   adbConnected?: boolean
+  adbScanning?: boolean
 }
 
-export function Sidebar({ active, onNav, adbConnected = false }: Props) {
+export function Sidebar({ active, onNav, adbConnected = false, adbScanning = false }: Props) {
   const width = useWindowWidth()
   const expanded = width >= 768
+
+  const dotColor = adbConnected ? '#1DB954' : adbScanning ? '#F59B23' : '#333'
+  const dotGlow  = adbConnected ? '0 0 6px #1DB954' : adbScanning ? '0 0 6px #F59B23' : 'none'
+  const dotAnim  = (adbConnected || adbScanning) ? 'pulse 2s infinite' : 'none'
+  const statusLabel = adbConnected ? 'Device connected' : adbScanning ? 'Scanning...' : 'No device'
+  const statusColor = adbConnected ? '#1DB954' : adbScanning ? '#F59B23' : '#555'
 
   return (
     <aside style={{
       width: expanded ? 200 : 60,
-      minHeight: '100vh',
+      minHeight: '100%',
       background: '#080808',
       display: 'flex',
       flexDirection: 'column',
@@ -122,13 +129,13 @@ export function Sidebar({ active, onNav, adbConnected = false }: Props) {
         }}>
           <div style={{
             width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-            background: adbConnected ? '#1DB954' : '#333',
-            boxShadow: adbConnected ? '0 0 6px #1DB954' : 'none',
-            animation: adbConnected ? 'pulse 2s infinite' : 'none',
+            background: dotColor,
+            boxShadow: dotGlow,
+            animation: dotAnim,
           }} />
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: adbConnected ? '#1DB954' : '#555' }}>
-              {adbConnected ? 'Device connected' : 'No device'}
+            <div style={{ fontSize: 11, fontWeight: 600, color: statusColor }}>
+              {statusLabel}
             </div>
             <div style={{ fontSize: 10, color: '#444', marginTop: 1 }}>ADB</div>
           </div>
@@ -137,9 +144,9 @@ export function Sidebar({ active, onNav, adbConnected = false }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           <div style={{
             width: 8, height: 8, borderRadius: '50%',
-            background: adbConnected ? '#1DB954' : '#444',
-            boxShadow: adbConnected ? '0 0 6px #1DB954' : 'none',
-            animation: adbConnected ? 'pulse 2s infinite' : 'none',
+            background: dotColor,
+            boxShadow: dotGlow,
+            animation: dotAnim,
           }} />
           <span style={{ fontSize: 8, color: '#666', fontFamily: 'monospace' }}>ADB</span>
         </div>
