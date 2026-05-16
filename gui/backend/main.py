@@ -1,4 +1,4 @@
-import asyncio
+import os
 import sys
 import webbrowser
 from contextlib import asynccontextmanager
@@ -16,7 +16,9 @@ from gui.backend.ws_runner import router as ws_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    webbrowser.open("http://localhost:8000")
+    # Skip browser launch when running inside Tauri (it manages the window itself).
+    if not os.environ.get("SPOTIFY_SYNC_TAURI"):
+        webbrowser.open("http://localhost:8000")
     yield
 
 
@@ -41,6 +43,12 @@ app.include_router(ws_router)
 stitch_dir = Path(__file__).parent.parent / "stitch"
 if stitch_dir.exists():
     app.mount("/stitch", StaticFiles(directory=stitch_dir), name="stitch")
+
+# Serve the built React frontend when the dist/ folder exists (production / Tauri mode).
+# Must be mounted last so API routes take priority.
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 
 if __name__ == "__main__":

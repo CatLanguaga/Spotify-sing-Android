@@ -17,6 +17,9 @@ reports/
 !gui/frontend/package.json
 !gui/frontend/tsconfig.json
 !gui/frontend/tsconfig.app.json
+!gui/frontend/src-tauri/tauri.conf.json
+!gui/frontend/src-tauri/Cargo.toml
+!gui/frontend/src-tauri/capabilities/main.json
 
 # Entornos virtuales
 venv/
