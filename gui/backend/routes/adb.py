@@ -1,11 +1,19 @@
 import subprocess
+import sys
+
 from fastapi import APIRouter
 
 router = APIRouter(tags=["adb"])
 
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
 
 def _list_serials() -> list[str]:
-    r = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=5)
+    r = subprocess.run(
+        ["adb", "devices"],
+        capture_output=True, text=True, timeout=5,
+        creationflags=_NO_WINDOW,
+    )
     lines = r.stdout.strip().splitlines()
     return [l.split("\t")[0].strip() for l in lines[1:] if l.strip() and "\tdevice" in l]
 
@@ -15,6 +23,7 @@ def _get_prop(serial: str, prop: str) -> str:
         r = subprocess.run(
             ["adb", "-s", serial, "shell", "getprop", prop],
             capture_output=True, text=True, timeout=5,
+            creationflags=_NO_WINDOW,
         )
         return r.stdout.strip()
     except Exception:
@@ -45,7 +54,7 @@ def adb_status():
 def adb_scan():
     """Trigger adb connect discovery on TCP/IP (USB devices already show up via adb devices)."""
     try:
-        subprocess.run(["adb", "start-server"], capture_output=True, timeout=8)
+        subprocess.run(["adb", "start-server"], capture_output=True, timeout=8, creationflags=_NO_WINDOW)
         return adb_status()
     except Exception:
         return {"connected": False, "device": None}

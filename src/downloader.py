@@ -7,24 +7,31 @@ import requests
 from pathlib import Path
 
 
-def download_audio(youtube_url, output_folder, track_info=None):
+def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quality=320):
     """
-    Download audio from YouTube and embed metadata
-    Uses YouTube thumbnail as fallback if no Spotify album art
+    Download audio from YouTube and embed metadata.
+
+    Args:
+        fmt:     Output format — 'mp3', 'm4a', or 'opus'
+        quality: Target bitrate in kbps — 128, 192, or 320
     """
+    _CODEC = {'mp3': 'libmp3lame', 'm4a': 'aac', 'opus': 'libopus'}
+    codec = _CODEC.get(fmt, 'libmp3lame')
+    ext = fmt  # mp3 / m4a / opus
+
     try:
         from pytubefix import YouTube
-        
+
         Path(output_folder).mkdir(parents=True, exist_ok=True)
-        
+
         yt = YouTube(youtube_url)
-        
+
         # Get audio stream
         audio_stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
-        
+
         if not audio_stream:
             return False, "No audio stream", None
-        
+
         # Create filename
         if track_info:
             artist = track_info.get('artist', 'Unknown')
@@ -34,18 +41,18 @@ def download_audio(youtube_url, output_folder, track_info=None):
             filename = f"{safe_artist} - {safe_name}"
         else:
             filename = "".join(c for c in yt.title if c.isalnum() or c in ' ._-').strip()[:80]
-        
+
         # Download raw audio (aac/webm/etc)
         temp_path = audio_stream.download(output_path=output_folder, filename=f"{filename}.mp4")
-        
-        # Convert to real MP3 using ffmpeg
-        final_path = os.path.join(output_folder, f"{filename}.mp3")
+
+        # Convert using ffmpeg with selected format and bitrate
+        final_path = os.path.join(output_folder, f"{filename}.{ext}")
         if os.path.exists(final_path):
             os.remove(final_path)
-        
+
         import subprocess as _sp
         ffmpeg_result = _sp.run(
-            ['ffmpeg', '-y', '-i', temp_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '0', final_path],
+            ['ffmpeg', '-y', '-i', temp_path, '-vn', '-acodec', codec, '-b:a', f'{quality}k', final_path],
             capture_output=True, text=True
         )
         

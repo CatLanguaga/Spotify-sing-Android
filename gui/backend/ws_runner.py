@@ -1,4 +1,6 @@
 import asyncio
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -6,7 +8,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter(tags=["websocket"])
 
-TOOLS_DIR = Path(__file__).parent.parent.parent / "tools"
+_ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).resolve().parent.parent.parent))
+TOOLS_DIR = _ROOT / "tools"
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 ALLOWED_SCRIPTS = {
     "smart_compare.py",
@@ -40,7 +44,8 @@ async def ws_logs(websocket: WebSocket, script: str = "smart_compare.py"):
             str(script_path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
-            cwd=str(script_path.parent.parent),
+            cwd=str(_ROOT),
+            creationflags=_NO_WINDOW,
         )
 
         async for line in proc.stdout:

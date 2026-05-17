@@ -266,11 +266,20 @@ def push_to_phone(local_path):
     return result.returncode == 0, result.stderr
 
 
-def main():
+def main(fmt='mp3', quality=320, output_dir=None):
+    """
+    Args:
+        fmt:        Output audio format — 'mp3', 'm4a', or 'opus'
+        quality:    Target bitrate in kbps — 128, 192, or 320
+        output_dir: Local temp folder for downloads (overrides LOCAL_TEMP_DIR)
+    """
     config = load_config()
 
     open_live_log_window(LOG_PATH)
     sys.stdout = TeeLogger(LOG_PATH)
+
+    temp_dir = Path(output_dir) if output_dir else LOCAL_TEMP_DIR
+    print(f"Formato: {fmt} | Calidad: {quality}kbps | Carpeta temporal: {temp_dir}")
 
     spotify = SpotifyClient(config['spotify_client_id'], config['spotify_client_secret'])
 
@@ -286,7 +295,7 @@ def main():
     print(f"A descargar: {len(tracks)} canciones")
     print()
 
-    LOCAL_TEMP_DIR.mkdir(exist_ok=True)
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
     failed = []
     success_count = 0
@@ -330,7 +339,7 @@ def main():
 
         # Descargar
         print(f"  -> Descargando...")
-        ok, msg, local_path = download_audio(yt_url, str(LOCAL_TEMP_DIR), track)
+        ok, msg, local_path = download_audio(yt_url, str(temp_dir), track, fmt=fmt, quality=quality)
 
         if not ok:
             print(f"  -> FALLO descarga: {msg}")
@@ -379,4 +388,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Download missing tracks from the compare report")
+    parser.add_argument('--format', dest='fmt', choices=['mp3', 'm4a', 'opus'], default='mp3')
+    parser.add_argument('--quality', type=int, choices=[128, 192, 320], default=320)
+    parser.add_argument('--output-dir', default=None)
+    _args = parser.parse_args()
+    main(fmt=_args.fmt, quality=_args.quality, output_dir=_args.output_dir)

@@ -33,6 +33,8 @@ export interface QueueItem {
   cover_url: string | null
   youtube_url: string | null
   local_path: string | null
+  fmt: string
+  quality: number
 }
 
 export interface SpotifyConfig {

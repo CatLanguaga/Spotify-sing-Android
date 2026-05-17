@@ -23,21 +23,23 @@ class SpotifyConfig(BaseModel):
 
 
 class QueueItem(BaseModel):
-    id: str
+    id: str = ''
     title: str
     artist: str
     album: str
     language: str
-    score: float
-    status: QueueStatus
+    score: float = 0.0
+    status: QueueStatus = QueueStatus.pending
     spotify_id: str
     cover_url: Optional[str] = None
     youtube_url: Optional[str] = None
     local_path: Optional[str] = None
+    fmt: str = 'mp3'        # mp3 / m4a / opus
+    quality: int = 320      # 128 / 192 / 320 kbps
 
 
 class QueuePatch(BaseModel):
-    status: QueueStatus
+    status: Optional[QueueStatus] = None
     youtube_url: Optional[str] = None
 
 

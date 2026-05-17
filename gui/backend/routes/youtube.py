@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -5,7 +6,9 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+_ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).resolve().parent.parent.parent.parent))
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from src.youtube_client import YouTubeClient
 
@@ -23,14 +26,14 @@ class YTResult(BaseModel):
 
 @router.get("/youtube/search", response_model=List[YTResult])
 def search_youtube(
-    song: str = Query(..., description="Track name"),
-    artist: str = Query("", description="Artist name"),
-    duration_ms: Optional[int] = Query(None, description="Expected duration in ms"),
+    song: str = Query(...),
+    artist: str = Query(""),
+    duration_ms: Optional[int] = Query(None),
+    limit: int = Query(5, ge=1, le=10),
 ):
+    """Return up to `limit` YouTube results for the given track."""
     try:
-        url = _yt.search_song(song, artist, duration_ms or 0)
-        if not url:
-            return []
-        return [YTResult(title=f"{song} - {artist}", url=url)]
+        results = _yt.search_song_results(song, artist, duration_ms or 0, limit=limit)
+        return results
     except Exception as e:
         raise HTTPException(500, str(e))

@@ -1,49 +1,76 @@
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
-from src.config import ConfigManager
+_ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).resolve().parent.parent.parent.parent))
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 router = APIRouter(tags=["compare"])
-_mgr = ConfigManager()
 
-SMART_COMPARE = Path(__file__).parent.parent.parent.parent / "tools" / "smart_compare.py"
+REPORT_PATH = _ROOT / "reports" / "informe_inteligente.txt"
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+_MISSING_LINE = re.compile(r'^#(\d+)\.\s+')
 
 
-@router.get("/compare")
-def run_compare():
-    """Run smart_compare.py and return parsed JSON results."""
-    cfg = _mgr.load_config()
-    if not cfg:
-        raise HTTPException(400, "Config not set. Call POST /api/config first.")
+def _parse_report(text: str) -> dict:
+    """Parse informe_inteligente.txt into structured data."""
+    start_offset = 0
+    analyzed = 0
+    matched = 0
+    blacklisted = 0
+    missing_indices: list[int] = []
 
-    try:
-        result = subprocess.run(
-            [sys.executable, str(SMART_COMPARE)],
-            capture_output=True,
-            text=True,
-            timeout=120,
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("Offset inicial:"):
+            try: start_offset = int(line.split(":", 1)[1].strip())
+            except ValueError: pass
+        elif line.startswith("Tracks analizados:"):
+            try: analyzed = int(line.split(":", 1)[1].strip())
+            except ValueError: pass
+        elif line.startswith("Coincidencias encontradas:"):
+            try: matched = int(line.split(":", 1)[1].strip())
+            except ValueError: pass
+        elif line.startswith("En blacklist"):
+            try: blacklisted = int(line.split(":", 1)[1].strip())
+            except ValueError: pass
+        else:
+            m = _MISSING_LINE.match(line)
+            if m:
+                missing_indices.append(int(m.group(1)))
+
+    range_start = start_offset + 1
+    range_end   = start_offset + analyzed if analyzed else range_start
+
+    return {
+        "missing_indices": missing_indices,
+        "matched": matched,
+        "blacklisted": blacklisted,
+        "missing_count": len(missing_indices),
+        "analyzed_range": {"start": range_start, "end": range_end},
+    }
+
+
+@router.get("/compare/report")
+def read_compare_report():
+    """
+    Parse the existing informe_inteligente.txt and return per-index status.
+    Does NOT run smart_compare.py — use the Monitor for that.
+    Returns 404 if no report exists yet.
+    """
+    if not REPORT_PATH.exists():
+        raise HTTPException(
+            404,
+            "No report found. Run smart_compare.py from the Monitor view first.",
         )
-        if result.returncode != 0:
-            raise HTTPException(500, result.stderr or "smart_compare.py failed")
-
-        lines = result.stdout.splitlines()
-        tracks = []
-        for line in lines:
-            if line.startswith("{"):
-                import json
-                try:
-                    tracks.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
-
-        return {"tracks": tracks, "raw": result.stdout if not tracks else None}
-
-    except subprocess.TimeoutExpired:
-        raise HTTPException(504, "smart_compare.py timed out (>120s)")
+    try:
+        text = REPORT_PATH.read_text(encoding="utf-8", errors="replace")
+        return _parse_report(text)
     except Exception as e:
         raise HTTPException(500, str(e))

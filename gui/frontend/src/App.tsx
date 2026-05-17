@@ -53,15 +53,6 @@ function AppInner() {
 
   const backendOffline = adbError !== undefined && adbStatus === undefined
 
-  const renderView = () => {
-    switch (view) {
-      case 'compare':  return <CompareView refreshSignal={compareRefreshSignal} />
-      case 'queue':    return <QueueView onDownloadComplete={() => toast('Download started', 'info')} />
-      case 'monitor':  return <MonitorView onScriptComplete={handleScriptComplete} />
-      case 'settings': return <SettingsView />
-    }
-  }
-
   return (
     <div style={{ display: 'flex', width: '100%', height: '100vh', background: '#0D0D0D', overflow: 'hidden', flexDirection: 'column' }}>
       {/* Backend offline banner */}
@@ -84,7 +75,13 @@ function AppInner() {
           adbScanning={adbStatus === undefined && !adbError}
         />
         <main style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {renderView()}
+          {/* CompareView stays mounted always so range/report state persists across navigation */}
+          <div style={{ display: view === 'compare' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
+            <CompareView refreshSignal={compareRefreshSignal} />
+          </div>
+          {view === 'queue'    && <QueueView onDownloadComplete={() => toast('Download started', 'info')} />}
+          {view === 'monitor'  && <MonitorView onScriptComplete={handleScriptComplete} />}
+          {view === 'settings' && <SettingsView />}
         </main>
       </div>
 

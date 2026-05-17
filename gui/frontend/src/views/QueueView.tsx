@@ -2,7 +2,6 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { api, fetcher } from '../api/client'
 import { LangBadge } from '../components/LangBadge'
-import { ScoreBadge } from '../components/ScoreBadge'
 import { SkeletonCard } from '../components/Skeleton'
 import { YouTubeSearchModal } from '../components/YouTubeSearchModal'
 import type { QueueItem } from '../api/types'
@@ -11,14 +10,29 @@ const btn = (color: string, bg: string, border: string, disabled = false) => ({
   color: disabled ? '#444' : color,
   background: disabled ? '#111' : bg,
   border: `1px solid ${disabled ? '#222' : border}`,
-  borderRadius: 5, padding: '4px 10px', fontSize: 11, fontWeight: 600,
+  borderRadius: 5, padding: '5px 11px', fontSize: 11, fontWeight: 600,
   cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+  whiteSpace: 'nowrap' as const,
 })
 
-const overlay: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  zIndex: 7000, backdropFilter: 'blur(3px)',
+const STATUS_STYLE: Record<string, { color: string; bg: string; border: string; label: string }> = {
+  pending:     { color: '#888',    bg: '#1A1A1A',              border: '#2A2A2A',              label: 'PENDING'     },
+  approved:    { color: '#1DB954', bg: 'rgba(29,185,84,0.10)', border: 'rgba(29,185,84,0.3)',  label: 'APPROVED'    },
+  rejected:    { color: '#E22D44', bg: 'rgba(226,45,68,0.10)', border: 'rgba(226,45,68,0.3)',  label: 'REJECTED'    },
+  downloading: { color: '#F59B23', bg: 'rgba(245,155,35,0.10)',border: 'rgba(245,155,35,0.3)', label: '⏳ DOWNLOADING'},
+  done:        { color: '#1DB954', bg: 'rgba(29,185,84,0.15)', border: 'rgba(29,185,84,0.5)',  label: '✓ DONE'      },
+  error:       { color: '#E22D44', bg: 'rgba(226,45,68,0.15)', border: 'rgba(226,45,68,0.5)',  label: '✗ ERROR'     },
+}
+
+function StatusChip({ status }: { status: string }) {
+  const s = STATUS_STYLE[status] ?? STATUS_STYLE.pending
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+      color: s.color, background: s.bg, border: `1px solid ${s.border}`,
+      borderRadius: 4, padding: '2px 6px',
+    }}>{s.label}</span>
+  )
 }
 
 interface Props {
@@ -28,76 +42,87 @@ interface Props {
 export function QueueView({ onDownloadComplete }: Props) {
   const { data, isLoading, error, mutate } = useSWR<QueueItem[]>('/queue', fetcher)
   const items = data ?? []
-  const [searchItem,       setSearchItem]       = useState<QueueItem | null>(null)
-  const [showConfirm,      setShowConfirm]      = useState(false)
-  const [downloading,      setDownloading]      = useState(false)
 
-  const approved = items.filter(i => i.status === 'approved')
+  const [searchItem,    setSearchItem]    = useState<QueueItem | null>(null)
+  const [downloading,   setDownloading]   = useState<Set<string>>(new Set())
 
-  const patch = async (id: string, status: QueueItem['status']) => {
-    await api.patch(`/queue/${id}`, { status })
-    mutate()
-  }
+  // ─── actions ───────────────────────────────────────────────────────────────
 
   const remove = async (id: string) => {
     await api.delete(`/queue/${id}`)
     mutate()
   }
 
-  const applyYouTubeUrl = async (id: string, url: string) => {
+  const setYouTubeUrl = async (id: string, url: string) => {
     await api.patch(`/queue/${id}`, { youtube_url: url })
     mutate()
     setSearchItem(null)
   }
 
-  const approveAll = async () => {
-    await Promise.all(
-      items.filter(i => i.status === 'pending').map(i => api.patch(`/queue/${i.id}`, { status: 'approved' }))
-    )
-    mutate()
-  }
-
-  const startDownload = async () => {
-    setDownloading(true)
-    setShowConfirm(false)
+  const downloadItem = async (item: QueueItem) => {
+    setDownloading(prev => new Set([...prev, item.id]))
     try {
-      await api.post('/scripts/run', { script: 'download_missing.py' })
+      await api.post(`/queue/${item.id}/download`, {})
       onDownloadComplete?.()
-    } catch {
-      // script errors surface in the Monitor view
+      mutate()
+    } catch (e: unknown) {
+      mutate() // refresh to show error status
     } finally {
-      setDownloading(false)
+      setDownloading(prev => { const s = new Set(prev); s.delete(item.id); return s })
     }
   }
 
-  const statusBorder: Record<string, string> = {
-    approved: 'rgba(29,185,84,0.3)',
-    rejected: 'rgba(226,45,68,0.3)',
-    pending: '#2A2A2A',
+  const clearDone = async () => {
+    const done = items.filter(i => i.status === 'done' || i.status === 'error')
+    await Promise.all(done.map(i => api.delete(`/queue/${i.id}`)))
+    mutate()
   }
+
+  const hasDone = items.some(i => i.status === 'done' || i.status === 'error')
+
+  // ─── render ────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+
+      {/* Header */}
+      <div style={{
+        padding: '16px 20px', borderBottom: '1px solid #1a1a1a',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
         <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>
           Download Queue
         </h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={approveAll} disabled={isLoading} style={btn('#1DB954', 'rgba(29,185,84,0.10)', 'rgba(29,185,84,0.3)', isLoading)}>
-            ✓ Approve All
-          </button>
-          <button
-            disabled={approved.length === 0 || downloading}
-            onClick={() => setShowConfirm(true)}
-            style={btn('#000', '#1DB954', '#1DB954', approved.length === 0 || downloading)}
-          >
-            {downloading ? '↓ Starting...' : `↓ Download (${approved.length})`}
+          {hasDone && (
+            <button onClick={clearDone} style={btn('#888', 'transparent', '#2A2A2A')}>
+              Clear finished
+            </button>
+          )}
+          <button onClick={() => mutate()} disabled={isLoading} style={btn('#B3B3B3', 'transparent', '#2A2A2A', isLoading)}>
+            ↻ Refresh
           </button>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Error state */}
+      {/* Flow hint */}
+      <div style={{
+        padding: '8px 20px', background: '#111', borderBottom: '1px solid #1a1a1a',
+        fontSize: 11, color: '#555', display: 'flex', gap: 10, alignItems: 'center',
+      }}>
+        <span>Flow:</span>
+        <span style={{ color: '#888' }}>Add from Compare</span>
+        <span>→</span>
+        <span style={{ color: '#74B9FF' }}>🔍 Search on YouTube</span>
+        <span>→</span>
+        <span style={{ color: '#F59B23' }}>Select version</span>
+        <span>→</span>
+        <span style={{ color: '#1DB954' }}>⬇ Download to phone</span>
+      </div>
+
+      {/* List */}
+      <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
         {error && (
           <div style={{
             padding: '14px 18px',
@@ -105,99 +130,133 @@ export function QueueView({ onDownloadComplete }: Props) {
             borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <span style={{ fontSize: 18 }}>⚠</span>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#E22D44' }}>Failed to load queue</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{error.message}</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{error.message}</div>
             </div>
-            <button onClick={() => mutate()} style={{ marginLeft: 'auto', ...btn('#B3B3B3', '#1A1A1A', '#2A2A2A') }}>
-              Retry
-            </button>
+            <button onClick={() => mutate()} style={btn('#B3B3B3', '#1A1A1A', '#2A2A2A')}>Retry</button>
           </div>
         )}
 
-        {/* Loading skeletons */}
-        {isLoading && Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        {isLoading && Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
 
-        {/* Empty state */}
         {!isLoading && !error && items.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#666' }}>
-            Queue is empty. Add tracks from Compare view.
+          <div style={{ padding: 48, textAlign: 'center', color: '#555', fontSize: 13 }}>
+            Queue is empty — add tracks from the Compare view.
           </div>
         )}
 
-        {/* Items */}
-        {!isLoading && items.map(item => (
-          <div key={item.id} style={{
-            background: item.status === 'rejected' ? 'rgba(226,45,68,0.05)' : '#1A1A1A',
-            border: `1px solid ${statusBorder[item.status] ?? '#2A2A2A'}`,
-            borderRadius: 8, padding: 12,
-            opacity: item.status === 'rejected' ? 0.5 : 1,
-            borderTop: item.status === 'approved' ? '2px solid #1DB954' : undefined,
-            display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            {item.cover_url
-              ? <img src={item.cover_url} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-              : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#2A2A2A', flexShrink: 0 }} />
-            }
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {item.title}
-              </div>
-              <div style={{ fontSize: 11, color: '#B3B3B3', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {item.artist} · <LangBadge lang={item.language} />
-                {item.youtube_url && <span style={{ color: '#E22D44', fontSize: 10 }}>▶ YT</span>}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <ScoreBadge score={Math.round(item.score)} />
-              <button onClick={() => setSearchItem(item)} style={btn('#B3B3B3', '#111', '#2A2A2A')}>⌕</button>
-              <button onClick={() => patch(item.id, 'approved')} style={btn('#1DB954', 'rgba(29,185,84,0.10)', 'rgba(29,185,84,0.3)')}>✓</button>
-              <button onClick={() => patch(item.id, 'rejected')} style={btn('#E22D44', 'rgba(226,45,68,0.10)', 'rgba(226,45,68,0.3)')}>✗</button>
-              <button onClick={() => remove(item.id)} style={btn('#666', '#1A1A1A', '#2A2A2A')}>🗑</button>
-            </div>
-          </div>
-        ))}
-      </div>
+        {!isLoading && items.map(item => {
+          const isDownloading = downloading.has(item.id) || item.status === 'downloading'
+          const isDone        = item.status === 'done'
+          const isError       = item.status === 'error'
+          const hasUrl        = !!item.youtube_url
+          const canDownload   = hasUrl && !isDownloading && !isDone
 
-      {/* Download confirmation modal */}
-      {showConfirm && (
-        <div style={overlay} onClick={() => setShowConfirm(false)}>
-          <div style={{
-            background: '#141414', border: '1px solid #2A2A2A', borderRadius: 12,
-            padding: '28px 32px', width: 360,
-            animation: 'slideIn 0.2s ease', boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>
-              Start download?
+          return (
+            <div key={item.id} style={{
+              background: '#1A1A1A',
+              border: `1px solid ${isDone ? 'rgba(29,185,84,0.3)' : isError ? 'rgba(226,45,68,0.3)' : '#2A2A2A'}`,
+              borderRadius: 10, padding: '12px 14px',
+              opacity: isDone ? 0.7 : 1,
+              display: 'flex', flexDirection: 'column', gap: 10,
+            }}>
+
+              {/* Top row: cover + info + status + remove */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {item.cover_url
+                  ? <img src={item.cover_url} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                  : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#2A2A2A', flexShrink: 0 }} />
+                }
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#888', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {item.artist}
+                    <span style={{ color: '#333' }}>·</span>
+                    <LangBadge lang={item.language} />
+                    <span style={{ color: '#333' }}>·</span>
+                    <span style={{ fontFamily: 'monospace', color: '#555' }}>{item.fmt?.toUpperCase()} {item.quality}k</span>
+                  </div>
+                </div>
+                <StatusChip status={item.status} />
+                <button
+                  onClick={() => remove(item.id)}
+                  disabled={isDownloading}
+                  style={{ background: 'none', border: 'none', color: '#444', fontSize: 16, cursor: isDownloading ? 'not-allowed' : 'pointer', padding: '2px 4px', lineHeight: 1 }}
+                  title="Remove"
+                >✕</button>
+              </div>
+
+              {/* YouTube selection row */}
+              {!isDone && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 10px',
+                  background: '#111', borderRadius: 6,
+                  border: `1px solid ${hasUrl ? 'rgba(29,185,84,0.2)' : '#1A1A1A'}`,
+                }}>
+                  {hasUrl ? (
+                    <>
+                      <span style={{ fontSize: 10, color: '#E22D44', flexShrink: 0 }}>▶ YT</span>
+                      <span style={{ flex: 1, fontSize: 11, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.youtube_url}
+                      </span>
+                      <button
+                        onClick={() => setSearchItem(item)}
+                        disabled={isDownloading}
+                        style={btn('#74B9FF', 'transparent', 'rgba(116,185,255,0.3)', isDownloading)}
+                      >
+                        🔍 Change
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ flex: 1, fontSize: 11, color: '#555' }}>No YouTube source selected</span>
+                      <button
+                        onClick={() => setSearchItem(item)}
+                        style={btn('#74B9FF', 'rgba(116,185,255,0.08)', 'rgba(116,185,255,0.35)')}
+                      >
+                        🔍 Search on YouTube
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Download button row */}
+              {!isDone && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    disabled={!canDownload}
+                    onClick={() => downloadItem(item)}
+                    style={{
+                      ...btn('#000', '#1DB954', '#1DB954', !canDownload),
+                      padding: '7px 20px', fontSize: 12,
+                    }}
+                    title={!hasUrl ? 'Search on YouTube first' : ''}
+                  >
+                    {isDownloading ? '⏳ Downloading...' : '⬇ Download to Phone'}
+                  </button>
+                </div>
+              )}
+
+              {isError && (
+                <div style={{ fontSize: 11, color: '#E22D44', padding: '0 2px' }}>
+                  Download failed — try changing the YouTube source and retry.
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 24, lineHeight: 1.6 }}>
-              This will run <code style={{ color: '#1DB954', background: '#0F1A0F', padding: '1px 5px', borderRadius: 3 }}>download_missing.py</code> for{' '}
-              <strong style={{ color: '#fff' }}>{approved.length} approved track{approved.length !== 1 ? 's' : ''}</strong>.
-              You can follow progress in the Monitor view.
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => setShowConfirm(false)}
-                style={{ flex: 1, padding: '9px 0', borderRadius: 7, border: '1px solid #2A2A2A', background: 'transparent', color: '#888', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={startDownload}
-                style={{ flex: 1, padding: '9px 0', borderRadius: 7, border: 'none', background: '#1DB954', color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-              >
-                Download
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          )
+        })}
+      </div>
 
       {searchItem && (
         <YouTubeSearchModal
           item={searchItem}
           onClose={() => setSearchItem(null)}
-          onSelect={(url) => applyYouTubeUrl(searchItem.id, url)}
+          onSelect={url => setYouTubeUrl(searchItem.id, url)}
         />
       )}
     </div>
