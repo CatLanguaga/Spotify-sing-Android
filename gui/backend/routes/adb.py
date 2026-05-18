@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 
 router = APIRouter(tags=["adb"])
 
@@ -58,3 +58,53 @@ def adb_scan():
         return adb_status()
     except Exception:
         return {"connected": False, "device": None}
+
+
+@router.post("/adb/enable-wifi")
+def adb_enable_wifi():
+    """Run adb tcpip 5555 on USB-connected device. Must call before disconnecting USB."""
+    try:
+        r = subprocess.run(
+            ["adb", "tcpip", "5555"],
+            capture_output=True, text=True, timeout=10,
+            creationflags=_NO_WINDOW,
+        )
+        ok = r.returncode == 0 and "restarting" in r.stdout.lower()
+        return {"ok": ok, "message": r.stdout.strip() or r.stderr.strip()}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+
+
+@router.get("/adb/device-ip")
+def adb_device_ip():
+    """Get IP of currently USB-connected device from wlan0."""
+    try:
+        r = subprocess.run(
+            ["adb", "shell", "ip", "route"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=_NO_WINDOW,
+        )
+        for line in r.stdout.splitlines():
+            parts = line.split()
+            if "src" in parts:
+                idx = parts.index("src")
+                if idx + 1 < len(parts):
+                    return {"ip": parts[idx + 1]}
+        return {"ip": None}
+    except Exception:
+        return {"ip": None}
+
+
+@router.post("/adb/connect-wifi")
+def adb_connect_wifi(ip: str = Body(..., embed=True)):
+    """Connect to device over WiFi TCP/IP. Device must have had enable-wifi called first."""
+    try:
+        r = subprocess.run(
+            ["adb", "connect", f"{ip}:5555"],
+            capture_output=True, text=True, timeout=10,
+            creationflags=_NO_WINDOW,
+        )
+        connected = "connected" in r.stdout.lower()
+        return {"ok": connected, "message": r.stdout.strip()}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}

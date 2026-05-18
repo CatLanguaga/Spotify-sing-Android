@@ -14,9 +14,10 @@ interface Props {
   onNav: (v: View) => void
   adbConnected?: boolean
   adbScanning?: boolean
+  onWifiConnect?: () => void
 }
 
-export function Sidebar({ active, onNav, adbConnected = false, adbScanning = false }: Props) {
+export function Sidebar({ active, onNav, adbConnected = false, adbScanning = false, onWifiConnect }: Props) {
   const width = useWindowWidth()
   const expanded = width >= 768
 
@@ -119,6 +120,40 @@ export function Sidebar({ active, onNav, adbConnected = false, adbScanning = fal
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {/* WiFi connect */}
+      {!adbConnected && onWifiConnect && (
+        expanded ? (
+          <button
+            onClick={onWifiConnect}
+            style={{
+              margin: '0 8px 8px', padding: '8px 12px',
+              background: 'transparent', border: '1px solid #2A2A2A',
+              borderRadius: 8, color: '#888', fontSize: 11,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#1DB954'; e.currentTarget.style.color = '#1DB954' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2A2A2A'; e.currentTarget.style.color = '#888' }}
+          >
+            <span style={{ fontSize: 13 }}>📶</span> Connect WiFi
+          </button>
+        ) : (
+          <button
+            onClick={onWifiConnect}
+            title="Connect via WiFi"
+            style={{
+              marginBottom: 8, width: 36, height: 36, borderRadius: 8,
+              background: 'transparent', border: '1px solid #2A2A2A',
+              color: '#888', fontSize: 14, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#1DB954'; e.currentTarget.style.color = '#1DB954' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2A2A2A'; e.currentTarget.style.color = '#888' }}
+          >
+            📶
+          </button>
+        )
+      )}
 
       {/* ADB status */}
       {expanded ? (

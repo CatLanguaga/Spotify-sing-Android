@@ -3,6 +3,7 @@ import useSWR from 'swr'
 import { Sidebar } from './components/Sidebar'
 import { ToastProvider, useToast } from './components/Toast'
 import { AdbConnectModal } from './components/AdbConnectModal'
+import { AdbWifiModal } from './components/AdbWifiModal'
 import { CompareView } from './views/CompareView'
 import { QueueView } from './views/QueueView'
 import { MonitorView } from './views/MonitorView'
@@ -20,6 +21,7 @@ function AppInner() {
   const [view, setView] = useState<View>('compare')
   const [compareRefreshSignal, setCompareRefreshSignal] = useState(0)
   const [pendingDevice, setPendingDevice] = useState<AdbStatus['device']>(null)
+  const [showWifiModal, setShowWifiModal] = useState(false)
   const { toast } = useToast()
 
   const { data: adbStatus, error: adbError } = useSWR<AdbStatus>(
@@ -51,6 +53,11 @@ function AppInner() {
     setPendingDevice(null)
   }
 
+  const handleWifiConnected = (ip: string) => {
+    setShowWifiModal(false)
+    toast(`Connecting to ${ip}…`, 'info')
+  }
+
   const backendOffline = adbError !== undefined && adbStatus === undefined
 
   return (
@@ -73,6 +80,7 @@ function AppInner() {
           onNav={setView}
           adbConnected={adbStatus?.connected ?? false}
           adbScanning={adbStatus === undefined && !adbError}
+          onWifiConnect={() => setShowWifiModal(true)}
         />
         <main style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* CompareView stays mounted always so range/report state persists across navigation */}
@@ -90,6 +98,12 @@ function AppInner() {
           device={pendingDevice}
           onConfirm={confirmDevice}
           onDismiss={() => setPendingDevice(null)}
+        />
+      )}
+      {showWifiModal && (
+        <AdbWifiModal
+          onDismiss={() => setShowWifiModal(false)}
+          onConnected={handleWifiConnected}
         />
       )}
     </div>
