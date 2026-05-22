@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import { api, fetcher } from '../api/client'
 import { LangBadge } from '../components/LangBadge'
@@ -39,12 +39,84 @@ interface Props {
   onDownloadComplete?: () => void
 }
 
+interface YTResult {
+  title: string
+  url: string
+  duration: number | null
+  channel: string | null
+  thumbnail: string | null
+}
+
+function ytVideoId(url: string | null): string | null {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1) || null
+    const v = u.searchParams.get('v')
+    if (v) return v
+    const m = u.pathname.match(/\/embed\/([^/?#]+)/)
+    return m ? m[1] : null
+  } catch {
+    return null
+  }
+}
+
 export function QueueView({ onDownloadComplete }: Props) {
   const { data, isLoading, error, mutate } = useSWR<QueueItem[]>('/queue', fetcher)
   const items = data ?? []
 
   const [searchItem,    setSearchItem]    = useState<QueueItem | null>(null)
   const [downloading,   setDownloading]   = useState<Set<string>>(new Set())
+  const [autoPicking,   setAutoPicking]   = useState<Set<string>>(new Set())
+  const [expanded,      setExpanded]      = useState<Set<string>>(new Set())
+  const [batchRunning,  setBatchRunning]  = useState(false)
+  const autoPickAttempted = useRef<Set<string>>(new Set())
+  const autoPickEnabled   = useRef(true)
+
+  // Auto-pick first YouTube result for items without youtube_url
+  useEffect(() => {
+    if (!autoPickEnabled.current) return
+    const candidates = items.filter(it =>
+      !it.youtube_url &&
+      it.status !== 'done' &&
+      it.status !== 'downloading' &&
+      !autoPickAttempted.current.has(it.id),
+    )
+    if (candidates.length === 0) return
+
+    let cancelled = false
+    ;(async () => {
+      for (const it of candidates) {
+        if (cancelled) return
+        autoPickAttempted.current.add(it.id)
+        setAutoPicking(prev => new Set([...prev, it.id]))
+        try {
+          const params = new URLSearchParams({ song: `${it.title} ${it.artist}`, artist: it.artist, limit: '1' })
+          const res = await api.get<YTResult[]>(`/youtube/search?${params}`)
+          if (res.length > 0) {
+            await api.patch(`/queue/${it.id}`, { youtube_url: res[0].url })
+            setExpanded(prev => new Set([...prev, it.id]))
+          }
+        } catch {
+          // swallow — user can manually search
+        } finally {
+          setAutoPicking(prev => { const s = new Set(prev); s.delete(it.id); return s })
+        }
+      }
+      if (!cancelled) mutate()
+    })()
+
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map(i => i.id + ':' + (i.youtube_url ?? '') + ':' + i.status).join(',')])
+
+  const togglePreview = (id: string) => {
+    setExpanded(prev => {
+      const s = new Set(prev)
+      s.has(id) ? s.delete(id) : s.add(id)
+      return s
+    })
+  }
 
   // ─── actions ───────────────────────────────────────────────────────────────
 
@@ -72,13 +144,37 @@ export function QueueView({ onDownloadComplete }: Props) {
     }
   }
 
+  const downloadAll = async () => {
+    const ready = items.filter(i => i.youtube_url && i.status !== 'done' && i.status !== 'downloading')
+    if (ready.length === 0) return
+    setBatchRunning(true)
+    try {
+      for (const it of ready) {
+        setDownloading(prev => new Set([...prev, it.id]))
+        try {
+          await api.post(`/queue/${it.id}/download`, {})
+          onDownloadComplete?.()
+        } catch {
+          // continue with next item even if one fails
+        } finally {
+          setDownloading(prev => { const s = new Set(prev); s.delete(it.id); return s })
+          mutate()
+        }
+      }
+    } finally {
+      setBatchRunning(false)
+    }
+  }
+
   const clearDone = async () => {
     const done = items.filter(i => i.status === 'done' || i.status === 'error')
     await Promise.all(done.map(i => api.delete(`/queue/${i.id}`)))
     mutate()
   }
 
-  const hasDone = items.some(i => i.status === 'done' || i.status === 'error')
+  const hasDone        = items.some(i => i.status === 'done' || i.status === 'error')
+  const readyCount     = items.filter(i => i.youtube_url && i.status !== 'done' && i.status !== 'downloading').length
+  const canDownloadAll = readyCount > 0 && !batchRunning
 
   // ─── render ────────────────────────────────────────────────────────────────
 
@@ -93,7 +189,7 @@ export function QueueView({ onDownloadComplete }: Props) {
         <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>
           Download Queue
         </h1>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {hasDone && (
             <button onClick={clearDone} style={btn('#888', 'transparent', '#2A2A2A')}>
               Clear finished
@@ -101,6 +197,14 @@ export function QueueView({ onDownloadComplete }: Props) {
           )}
           <button onClick={() => mutate()} disabled={isLoading} style={btn('#B3B3B3', 'transparent', '#2A2A2A', isLoading)}>
             ↻ Refresh
+          </button>
+          <button
+            onClick={downloadAll}
+            disabled={!canDownloadAll}
+            title={readyCount === 0 ? 'No items ready to download' : `Download ${readyCount} item${readyCount !== 1 ? 's' : ''}`}
+            style={{ ...btn('#000', '#1DB954', '#1DB954', !canDownloadAll), padding: '6px 14px', fontSize: 12 }}
+          >
+            {batchRunning ? '⏳ Downloading all...' : `⬇ Download All${readyCount ? ` (${readyCount})` : ''}`}
           </button>
         </div>
       </div>
@@ -113,11 +217,11 @@ export function QueueView({ onDownloadComplete }: Props) {
         <span>Flow:</span>
         <span style={{ color: '#888' }}>Add from Compare</span>
         <span>→</span>
-        <span style={{ color: '#74B9FF' }}>🔍 Search on YouTube</span>
+        <span style={{ color: '#F59B23' }}>⚡ Auto-pick YT (1st result)</span>
         <span>→</span>
-        <span style={{ color: '#F59B23' }}>Select version</span>
+        <span style={{ color: '#74B9FF' }}>Preview / 🔍 change</span>
         <span>→</span>
-        <span style={{ color: '#1DB954' }}>⬇ Download to phone</span>
+        <span style={{ color: '#1DB954' }}>⬇ Download All</span>
       </div>
 
       {/* List */}
@@ -204,11 +308,27 @@ export function QueueView({ onDownloadComplete }: Props) {
                         {item.youtube_url}
                       </span>
                       <button
+                        onClick={() => togglePreview(item.id)}
+                        style={btn('#B3B3B3', 'transparent', '#2A2A2A')}
+                      >
+                        {expanded.has(item.id) ? '▴ Hide' : '▾ Preview'}
+                      </button>
+                      <button
                         onClick={() => setSearchItem(item)}
                         disabled={isDownloading}
                         style={btn('#74B9FF', 'transparent', 'rgba(116,185,255,0.3)', isDownloading)}
                       >
                         🔍 Change
+                      </button>
+                    </>
+                  ) : autoPicking.has(item.id) ? (
+                    <>
+                      <span style={{ flex: 1, fontSize: 11, color: '#F59B23' }}>⏳ Auto-picking from YouTube...</span>
+                      <button
+                        onClick={() => setSearchItem(item)}
+                        style={btn('#74B9FF', 'rgba(116,185,255,0.08)', 'rgba(116,185,255,0.35)')}
+                      >
+                        🔍 Search manually
                       </button>
                     </>
                   ) : (
@@ -224,6 +344,29 @@ export function QueueView({ onDownloadComplete }: Props) {
                   )}
                 </div>
               )}
+
+              {/* YouTube preview embed */}
+              {!isDone && hasUrl && expanded.has(item.id) && (() => {
+                const vid = ytVideoId(item.youtube_url)
+                if (!vid) return null
+                return (
+                  <div style={{
+                    borderRadius: 6, overflow: 'hidden', background: '#000',
+                    border: '1px solid #2A2A2A', aspectRatio: '16 / 9', width: '100%', maxWidth: 480,
+                  }}>
+                    <iframe
+                      src={`https://www.youtube.com/embed/${vid}`}
+                      title="YouTube preview"
+                      width="100%" height="100%"
+                      frameBorder={0}
+                      loading="lazy"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ display: 'block', border: 'none' }}
+                    />
+                  </div>
+                )
+              })()}
 
               {/* Download button row */}
               {!isDone && (

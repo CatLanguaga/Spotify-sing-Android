@@ -204,6 +204,19 @@ export function CompareView({ refreshSignal }: Props) {
   // Add-to-queue modal state
   const [queuePending, setQueuePending] = useState<{ track: SpotifyTrack; realIndex: number } | null>(null)
 
+  // Multi-select for bulk queueing
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkPending, setBulkPending] = useState<SpotifyTrack[] | null>(null)
+  const [bulkAdding,  setBulkAdding]  = useState(false)
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const s = new Set(prev)
+      s.has(id) ? s.delete(id) : s.add(id)
+      return s
+    })
+  }
+
   const addToQueue = async (track: SpotifyTrack, _realIndex: number, fmt: string, quality: number) => {
     await api.post('/queue', {
       spotify_id: track.spotify_id,
@@ -217,6 +230,33 @@ export function CompareView({ refreshSignal }: Props) {
     })
     setQueuedIds(prev => new Set([...prev, track.spotify_id]))
     setQueuePending(null)
+  }
+
+  const addBulkToQueue = async (tracks: SpotifyTrack[], fmt: string, quality: number) => {
+    setBulkAdding(true)
+    try {
+      for (const track of tracks) {
+        await api.post('/queue', {
+          spotify_id: track.spotify_id,
+          title:      track.name,
+          artist:     track.artist,
+          album:      track.album,
+          language:   track.language,
+          cover_url:  track.album_art_url,
+          fmt,
+          quality,
+        })
+      }
+      setQueuedIds(prev => {
+        const s = new Set(prev)
+        tracks.forEach(t => s.add(t.spotify_id))
+        return s
+      })
+      setSelectedIds(new Set())
+      setBulkPending(null)
+    } finally {
+      setBulkAdding(false)
+    }
   }
 
   const rangeInReport = report
@@ -241,17 +281,28 @@ export function CompareView({ refreshSignal }: Props) {
   const renderTrackRow = (row: RowData) => {
     const { track, realIndex, status } = row
     const isMissing = status === 'missing'
+    const isChecked = selectedIds.has(track.spotify_id)
     return (
       <tr
         key={track.spotify_id || realIndex}
         style={{
           borderBottom: '1px solid rgba(255,255,255,0.04)',
           transition:   'background 0.1s',
-          background:   isMissing ? 'rgba(226,45,68,0.03)' : 'transparent',
+          background:   isChecked
+            ? 'rgba(29,185,84,0.06)'
+            : isMissing ? 'rgba(226,45,68,0.03)' : 'transparent',
         }}
-        onMouseEnter={e => (e.currentTarget.style.background = '#222')}
-        onMouseLeave={e => (e.currentTarget.style.background = isMissing ? 'rgba(226,45,68,0.03)' : 'transparent')}
+        onMouseEnter={e => (e.currentTarget.style.background = isChecked ? 'rgba(29,185,84,0.10)' : '#222')}
+        onMouseLeave={e => (e.currentTarget.style.background = isChecked ? 'rgba(29,185,84,0.06)' : isMissing ? 'rgba(226,45,68,0.03)' : 'transparent')}
       >
+        <td style={{ padding: '8px 10px 8px 16px', width: 28 }}>
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => toggleSelected(track.spotify_id)}
+            style={{ cursor: 'pointer', accentColor: '#1DB954' }}
+          />
+        </td>
         <td style={{ padding: '8px 16px', fontSize: 11, color: '#555', fontFamily: 'monospace', width: 40 }}>
           {realIndex}
         </td>
@@ -287,7 +338,7 @@ export function CompareView({ refreshSignal }: Props) {
   }
 
   const buildTableBody = () => {
-    if (isLoading) return Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+    if (isLoading) return Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} cols={8} />)
 
     if (!groupBy) return filteredRows.map(renderTrackRow)
 
@@ -303,7 +354,7 @@ export function CompareView({ refreshSignal }: Props) {
     for (const [key, rows] of groups) {
       result.push(
         <tr key={`grp-${key}`} style={{ background: '#161616' }}>
-          <td colSpan={7} style={{
+          <td colSpan={8} style={{
             padding: '6px 16px',
             fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
             color: '#888', borderBottom: '1px solid #2A2A2A',
@@ -319,7 +370,31 @@ export function CompareView({ refreshSignal }: Props) {
     return result
   }
 
-  const HEADERS = ['#', 'TRACK', 'ARTIST', 'LANG', 'DURATION', 'STATUS', 'ACTIONS']
+  const HEADERS = ['SEL', '#', 'TRACK', 'ARTIST', 'LANG', 'DURATION', 'STATUS', 'ACTIONS']
+
+  const allVisibleIds = filteredRows.map(r => r.track.spotify_id)
+  const allSelected   = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id))
+  const someSelected  = allVisibleIds.some(id => selectedIds.has(id))
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      if (allSelected) {
+        const s = new Set(prev)
+        allVisibleIds.forEach(id => s.delete(id))
+        return s
+      }
+      const s = new Set(prev)
+      allVisibleIds.forEach(id => s.add(id))
+      return s
+    })
+  }
+
+  const openBulkModal = () => {
+    if (!data) return
+    const map = new Map(data.tracks.map(t => [t.spotify_id, t]))
+    const tracks = [...selectedIds].map(id => map.get(id)).filter(Boolean) as SpotifyTrack[]
+    if (tracks.length) setBulkPending(tracks)
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -467,6 +542,42 @@ export function CompareView({ refreshSignal }: Props) {
         />
       )}
 
+      {/* Bulk Add modal */}
+      {bulkPending && (
+        <AddToQueueModal
+          bulkCount={bulkPending.length}
+          onConfirm={(fmt, quality) => addBulkToQueue(bulkPending, fmt, quality)}
+          onClose={() => !bulkAdding && setBulkPending(null)}
+        />
+      )}
+
+      {/* Bulk selection action bar */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          padding: '10px 20px', borderBottom: '1px solid #1a1a1a',
+          background: 'rgba(29,185,84,0.06)',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <span style={{ fontSize: 12, color: '#1DB954', fontWeight: 700 }}>
+            {selectedIds.size} selected
+          </span>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            style={btn('#888', 'transparent', '#2A2A2A')}
+          >
+            Clear
+          </button>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={openBulkModal}
+            disabled={bulkAdding}
+            style={{ ...btn('#000', '#1DB954', '#1DB954', bulkAdding), padding: '6px 16px', fontSize: 12 }}
+          >
+            {bulkAdding ? '⏳ Adding...' : `+ Add ${selectedIds.size} to Queue`}
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div style={{ flex: 1, overflow: 'auto' }}>
         {error && (
@@ -491,6 +602,24 @@ export function CompareView({ refreshSignal }: Props) {
             <thead>
               <tr style={{ borderBottom: '1px solid #2A2A2A' }}>
                 {HEADERS.map(h => {
+                  if (h === 'SEL') {
+                    return (
+                      <th key={h} style={{
+                        padding: '8px 10px 8px 16px', width: 28,
+                        position: 'sticky', top: 0, background: '#111',
+                        borderBottom: '1px solid transparent',
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = !allSelected && someSelected }}
+                          onChange={toggleSelectAll}
+                          style={{ cursor: 'pointer', accentColor: '#1DB954' }}
+                          title={allSelected ? 'Deselect all visible' : 'Select all visible'}
+                        />
+                      </th>
+                    )
+                  }
                   const isGroupable = h in GROUPABLE
                   const isGrouped   = groupBy === GROUPABLE[h]
                   return (

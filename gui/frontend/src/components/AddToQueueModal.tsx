@@ -2,8 +2,9 @@ import { useState } from 'react'
 import type { SpotifyTrack } from '../api/types'
 
 interface Props {
-  track: SpotifyTrack
-  realIndex: number
+  track?: SpotifyTrack
+  realIndex?: number
+  bulkCount?: number
   onConfirm: (fmt: string, quality: number) => void
   onClose: () => void
 }
@@ -50,11 +51,12 @@ function OptionGroup<T extends string | number>({
   )
 }
 
-export function AddToQueueModal({ track, realIndex, onConfirm, onClose }: Props) {
+export function AddToQueueModal({ track, realIndex, bulkCount, onConfirm, onClose }: Props) {
   const [fmt,     setFmt]     = useState('mp3')
   const [quality, setQuality] = useState(320)
 
   const handleConfirm = () => onConfirm(fmt, quality)
+  const isBulk = bulkCount != null && bulkCount > 0
 
   return (
     <div style={overlay} onClick={onClose}>
@@ -69,17 +71,43 @@ export function AddToQueueModal({ track, realIndex, onConfirm, onClose }: Props)
       >
         {/* Track info */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
-          {track.album_art_url
-            ? <img src={track.album_art_url} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-            : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#2A2A2A', flexShrink: 0 }} />
-          }
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {track.name}
-            </div>
-            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{track.artist}</div>
-            <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', marginTop: 1 }}>#{realIndex}</div>
-          </div>
+          {isBulk ? (
+            <>
+              <div style={{
+                width: 48, height: 48, borderRadius: 6,
+                background: 'rgba(29,185,84,0.12)',
+                border: '1px solid rgba(29,185,84,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#1DB954' }}>{bulkCount}</span>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>
+                  {bulkCount} track{bulkCount !== 1 ? 's' : ''} selected
+                </div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                  Same format & quality applied to all
+                </div>
+              </div>
+            </>
+          ) : track ? (
+            <>
+              {track.album_art_url
+                ? <img src={track.album_art_url} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                : <div style={{ width: 48, height: 48, borderRadius: 6, background: '#2A2A2A', flexShrink: 0 }} />
+              }
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {track.name}
+                </div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{track.artist}</div>
+                {realIndex != null && (
+                  <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', marginTop: 1 }}>#{realIndex}</div>
+                )}
+              </div>
+            </>
+          ) : null}
         </div>
 
         <OptionGroup
@@ -123,7 +151,7 @@ export function AddToQueueModal({ track, realIndex, onConfirm, onClose }: Props)
               color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             }}
           >
-            + Add to Queue
+            {isBulk ? `+ Add ${bulkCount} to Queue` : '+ Add to Queue'}
           </button>
         </div>
       </div>
