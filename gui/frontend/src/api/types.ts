@@ -14,13 +14,6 @@ export interface SpotifyTrack {
   track_number: number
 }
 
-export interface CompareResult {
-  spotify: SpotifyTrack
-  score: number
-  status: 'match' | 'missing' | 'dubious'
-  device_file?: string
-}
-
 export interface QueueItem {
   id: string
   title: string
@@ -40,9 +33,9 @@ export interface QueueItem {
 export interface SpotifyConfig {
   client_id: string
   client_secret: string
-  download_path: string
-  auto_approve_threshold: number
-  min_score_to_show: number
+  playlist_id: string
+  default_fmt: string
+  default_quality: number
 }
 
 export interface ScriptInfo {

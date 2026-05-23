@@ -131,14 +131,25 @@ export function QueueView({ onDownloadComplete }: Props) {
     setSearchItem(null)
   }
 
+  const triggerBrowserDownload = (itemId: string) => {
+    const a = document.createElement('a')
+    a.href = `/api/queue/${itemId}/file`
+    a.download = ''
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    // File is cleaned from server after served; refresh queue state shortly after
+    setTimeout(() => mutate(), 3000)
+  }
+
   const downloadItem = async (item: QueueItem) => {
     setDownloading(prev => new Set([...prev, item.id]))
     try {
       await api.post(`/queue/${item.id}/download`, {})
       onDownloadComplete?.()
       mutate()
-    } catch (e: unknown) {
-      mutate() // refresh to show error status
+    } catch {
+      mutate()
     } finally {
       setDownloading(prev => { const s = new Set(prev); s.delete(item.id); return s })
     }
@@ -166,6 +177,14 @@ export function QueueView({ onDownloadComplete }: Props) {
     }
   }
 
+  const saveAllFiles = () => {
+    const done = items.filter(i => i.status === 'done' && i.local_path)
+    done.forEach((it, idx) => {
+      // Small delay between each to avoid browser blocking multiple downloads
+      setTimeout(() => triggerBrowserDownload(it.id), idx * 600)
+    })
+  }
+
   const clearDone = async () => {
     const done = items.filter(i => i.status === 'done' || i.status === 'error')
     await Promise.all(done.map(i => api.delete(`/queue/${i.id}`)))
@@ -173,6 +192,7 @@ export function QueueView({ onDownloadComplete }: Props) {
   }
 
   const hasDone        = items.some(i => i.status === 'done' || i.status === 'error')
+  const hasSaveable    = items.some(i => i.status === 'done' && i.local_path)
   const readyCount     = items.filter(i => i.youtube_url && i.status !== 'done' && i.status !== 'downloading').length
   const canDownloadAll = readyCount > 0 && !batchRunning
 
@@ -195,6 +215,15 @@ export function QueueView({ onDownloadComplete }: Props) {
               Clear finished
             </button>
           )}
+          {hasSaveable && (
+            <button
+              onClick={saveAllFiles}
+              style={{ ...btn('#000', '#1DB954', '#1DB954'), padding: '6px 14px', fontSize: 12 }}
+              title="Save all ready files to your device"
+            >
+              💾 Save all files
+            </button>
+          )}
           <button onClick={() => mutate()} disabled={isLoading} style={btn('#B3B3B3', 'transparent', '#2A2A2A', isLoading)}>
             ↻ Refresh
           </button>
@@ -202,7 +231,7 @@ export function QueueView({ onDownloadComplete }: Props) {
             onClick={downloadAll}
             disabled={!canDownloadAll}
             title={readyCount === 0 ? 'No items ready to download' : `Download ${readyCount} item${readyCount !== 1 ? 's' : ''}`}
-            style={{ ...btn('#000', '#1DB954', '#1DB954', !canDownloadAll), padding: '6px 14px', fontSize: 12 }}
+            style={{ ...btn('#000', '#222', '#2A2A2A', !canDownloadAll), padding: '6px 14px', fontSize: 12 }}
           >
             {batchRunning ? '⏳ Downloading all...' : `⬇ Download All${readyCount ? ` (${readyCount})` : ''}`}
           </button>
@@ -215,13 +244,15 @@ export function QueueView({ onDownloadComplete }: Props) {
         fontSize: 11, color: '#555', display: 'flex', gap: 10, alignItems: 'center',
       }}>
         <span>Flow:</span>
-        <span style={{ color: '#888' }}>Add from Compare</span>
+        <span style={{ color: '#888' }}>Paste Spotify URL</span>
         <span>→</span>
         <span style={{ color: '#F59B23' }}>⚡ Auto-pick YT (1st result)</span>
         <span>→</span>
         <span style={{ color: '#74B9FF' }}>Preview / 🔍 change</span>
         <span>→</span>
-        <span style={{ color: '#1DB954' }}>⬇ Download All</span>
+        <span style={{ color: '#888' }}>⬇ Download All</span>
+        <span>→</span>
+        <span style={{ color: '#1DB954' }}>💾 Save all files</span>
       </div>
 
       {/* List */}
@@ -246,7 +277,7 @@ export function QueueView({ onDownloadComplete }: Props) {
 
         {!isLoading && !error && items.length === 0 && (
           <div style={{ padding: 48, textAlign: 'center', color: '#555', fontSize: 13 }}>
-            Queue is empty — add tracks from the Compare view.
+            Queue is empty — paste a Spotify URL to get started.
           </div>
         )}
 
@@ -368,22 +399,30 @@ export function QueueView({ onDownloadComplete }: Props) {
                 )
               })()}
 
-              {/* Download button row */}
-              {!isDone && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              {/* Download / Save row */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                {isDone && item.local_path && (
+                  <button
+                    onClick={() => triggerBrowserDownload(item.id)}
+                    style={{ ...btn('#000', '#1DB954', '#1DB954'), padding: '7px 20px', fontSize: 12 }}
+                  >
+                    💾 Save to device
+                  </button>
+                )}
+                {!isDone && (
                   <button
                     disabled={!canDownload}
                     onClick={() => downloadItem(item)}
                     style={{
-                      ...btn('#000', '#1DB954', '#1DB954', !canDownload),
+                      ...btn('#B3B3B3', '#222', '#2A2A2A', !canDownload),
                       padding: '7px 20px', fontSize: 12,
                     }}
                     title={!hasUrl ? 'Search on YouTube first' : ''}
                   >
-                    {isDownloading ? '⏳ Downloading...' : '⬇ Download to Phone'}
+                    {isDownloading ? '⏳ Downloading...' : '⬇ Download'}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {isError && (
                 <div style={{ fontSize: 11, color: '#E22D44', padding: '0 2px' }}>

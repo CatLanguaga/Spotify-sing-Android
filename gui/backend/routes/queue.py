@@ -5,8 +5,10 @@ import sys
 import uuid
 from pathlib import Path
 from typing import List
+from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 _ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).resolve().parent.parent.parent.parent))
@@ -79,10 +81,7 @@ def patch_queue_item(item_id: str, patch: QueuePatch):
 
 @router.post("/queue/{item_id}/download", response_model=QueueItem)
 def download_queue_item(item_id: str):
-    """
-    Download a single queued track from its YouTube URL and push it to the phone via ADB.
-    The item must have a youtube_url set (via the search flow).
-    """
+    """Download track to LOCAL_TEMP_DIR. Browser fetches via /file endpoint."""
     items = _load()
     item = next((it for it in items if it["id"] == item_id), None)
     if not item:
@@ -91,7 +90,6 @@ def download_queue_item(item_id: str):
     if not item.get("youtube_url"):
         raise HTTPException(400, "No YouTube URL — use the search flow first.")
 
-    # Mark as downloading
     item["status"] = QueueStatus.downloading
     _update_item(items, item)
 
@@ -117,24 +115,49 @@ def download_queue_item(item_id: str):
         _update_item(items, item)
         raise HTTPException(500, f"Download failed: {msg}")
 
-    local_folder = _config.get_download_folder()
-    Path(local_folder).mkdir(parents=True, exist_ok=True)
-    dest = Path(local_folder) / Path(local_path).name
-    try:
-        shutil.move(local_path, str(dest))
-        item["local_path"] = str(dest)
-    except Exception as e:
+    item["local_path"] = local_path
+    item["status"] = QueueStatus.done
+    _update_item(items, item)
+    return item
+
+
+@router.get("/queue/{item_id}/file")
+def serve_queue_file(item_id: str, background_tasks: BackgroundTasks):
+    """Serve the downloaded file to the browser and schedule temp cleanup."""
+    items = _load()
+    item = next((it for it in items if it["id"] == item_id), None)
+    if not item:
+        raise HTTPException(404, f"Queue item '{item_id}' not found")
+
+    local_path = item.get("local_path")
+    if not local_path or not Path(local_path).exists():
+        raise HTTPException(404, "File not found — download it first.")
+
+    filename = Path(local_path).name
+    # RFC 5987 encoding for non-ASCII filenames
+    encoded_name = quote(filename)
+    content_disposition = f"attachment; filename*=UTF-8''{encoded_name}"
+
+    def _cleanup():
         try:
             Path(local_path).unlink(missing_ok=True)
         except Exception:
             pass
-        item["status"] = QueueStatus.error
-        _update_item(items, item)
-        raise HTTPException(500, f"Local save failed: {e}")
+        # Clear local_path from queue item so frontend knows file is gone
+        current = _load()
+        for it in current:
+            if it["id"] == item_id:
+                it["local_path"] = None
+                break
+        _save(current)
 
-    item["status"] = QueueStatus.done
-    _update_item(items, item)
-    return item
+    background_tasks.add_task(_cleanup)
+
+    return FileResponse(
+        path=local_path,
+        filename=filename,
+        headers={"Content-Disposition": content_disposition},
+    )
 
 
 @router.delete("/queue/{item_id}")
