@@ -2,6 +2,29 @@
 
 ---
 
+## Próximo — Features y UX
+
+### Features nuevas
+- [x] **Click en fila para seleccionar** (CompareView) — click en cualquier parte de la fila togglea selección, no solo el checkbox
+- [ ] **Formato/calidad por defecto en Settings** — configurar mp3/m4a/opus y 128/192/320 kbps globalmente → saltar modal al agregar a cola
+- [x] **Rango por defecto de playlist en Settings** — configurar `desde` y `hasta` con opción dinámica "hasta el último disponible" → CompareView arranca en ese rango automáticamente
+
+### UX — QueueView
+- [ ] **Label dinámico PC/Android** — botón muestra "Save to PC" o "Download to Phone" según ADB
+- [ ] **Path post-descarga + "Open folder"** — al terminar descarga local, mostrar ruta con botón para abrir carpeta
+- [ ] **Retry en error cards** — botón `⟳ Retry` directo en card de error (hoy solo texto)
+- [ ] **Título YT en lugar de URL cruda** — mostrar título del video en la card en vez de URL completa
+- [ ] **Contador de progreso en batch** — mostrar `(2 / 8)` mientras corre "Download All"
+
+### UX — CompareView
+- [ ] **Filtro por texto** — input que filtra nombre/artista en tiempo real
+- [ ] **Sort por columna** — click en header = ordenar asc/desc (independiente del grouping)
+- [ ] **Timestamp del último compare** — "Último compare: hace 2h" en stat strip
+- [ ] **Ocultar "+ Queue" en tracks `match`** — ya está en el teléfono, no tiene sentido mostrarlo
+- [ ] **Album art más grande** — subir a 40px o tooltip hover con preview 80×80
+
+---
+
 ## Hecho ✅
 
 - [x] Explorar y documentar estructura del proyecto existente

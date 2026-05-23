@@ -17,7 +17,9 @@ class ConfigManager:
         self.config_file = self.config_dir / 'config.json'
         self.default_download_folder = str(Path.home() / 'Music' / 'SpotifyYT')
         
-    def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None, playlist_id=None):
+    def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None,
+                    playlist_id=None, default_fmt=None, default_quality=None,
+                    default_range_from=None, default_range_to=None):
         """Save API credentials and settings - YouTube API no longer needed"""
         existing = self.load_config() or {}
 
@@ -26,6 +28,10 @@ class ConfigManager:
             'spotify_client_secret': spotify_client_secret,
             'download_folder': download_folder or existing.get('download_folder', self.default_download_folder),
             'playlist_id': playlist_id if playlist_id is not None else existing.get('playlist_id', ''),
+            'default_fmt': default_fmt if default_fmt is not None else existing.get('default_fmt', 'mp3'),
+            'default_quality': default_quality if default_quality is not None else existing.get('default_quality', 320),
+            'default_range_from': default_range_from if default_range_from is not None else existing.get('default_range_from', 1),
+            'default_range_to': default_range_to if default_range_to is not None else existing.get('default_range_to', None),
         }
 
         with open(self.config_file, 'w', encoding='utf-8') as f:

@@ -14,7 +14,7 @@ _ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).parent.parent.pa
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from gui.backend.routes import adb, compare, config, queue, scripts, spotify, youtube
+from gui.backend.routes import config, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
 
 
@@ -35,13 +35,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(adb.router, prefix="/api")
 app.include_router(config.router, prefix="/api")
-app.include_router(compare.router, prefix="/api")
 app.include_router(queue.router, prefix="/api")
 app.include_router(youtube.router, prefix="/api")
 app.include_router(scripts.router, prefix="/api")
 app.include_router(spotify.router, prefix="/api")
+
 app.include_router(ws_router)
 
 stitch_dir = _ROOT / "gui" / "stitch"

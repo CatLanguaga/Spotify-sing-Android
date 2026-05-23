@@ -26,6 +26,10 @@ def save_config(body: SpotifyConfig):
             spotify_client_secret=body.client_secret,
             download_folder=body.download_path,
             playlist_id=body.playlist_id,
+            default_fmt=body.default_fmt,
+            default_quality=body.default_quality,
+            default_range_from=body.default_range_from,
+            default_range_to=body.default_range_to,
         )
         return {"ok": True}
     except Exception as e:

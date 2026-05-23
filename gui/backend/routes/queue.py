@@ -1,6 +1,6 @@
 import json
 import os
-import subprocess
+import shutil
 import sys
 import uuid
 from pathlib import Path
@@ -14,14 +14,14 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from gui.backend.models import QueueItem, QueuePatch, QueueStatus
+from src.config import ConfigManager
 from src.downloader import download_audio
 
 router = APIRouter(tags=["queue"])
 
 QUEUE_FILE     = Path.home() / ".spotifytoyoutube" / "queue.json"
 LOCAL_TEMP_DIR = _ROOT / "temp_downloads"
-PHONE_MUSIC_DIR = "/storage/emulated/0/snaptube/download/Snaptube Audio"
-_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+_config        = ConfigManager()
 
 
 # ─── persistence ───────────────────────────────────────────────────────────────
@@ -43,19 +43,6 @@ def _update_item(items: List[dict], item: dict) -> None:
             items[i] = item
             break
     _save(items)
-
-
-# ─── ADB helper ────────────────────────────────────────────────────────────────
-
-def _push_to_phone(local_path: str) -> tuple[bool, str]:
-    remote = f"{PHONE_MUSIC_DIR}/{Path(local_path).name}"
-    r = subprocess.run(
-        ["adb", "push", local_path, remote],
-        capture_output=True, text=True,
-        encoding="utf-8", errors="replace",
-        creationflags=_NO_WINDOW,
-    )
-    return r.returncode == 0, r.stderr.strip()
 
 
 # ─── routes ────────────────────────────────────────────────────────────────────
@@ -130,18 +117,20 @@ def download_queue_item(item_id: str):
         _update_item(items, item)
         raise HTTPException(500, f"Download failed: {msg}")
 
-    pushed, push_err = _push_to_phone(local_path)
-
-    # Clean up temp file regardless of push result
+    local_folder = _config.get_download_folder()
+    Path(local_folder).mkdir(parents=True, exist_ok=True)
+    dest = Path(local_folder) / Path(local_path).name
     try:
-        Path(local_path).unlink(missing_ok=True)
-    except Exception:
-        pass
-
-    if not pushed:
+        shutil.move(local_path, str(dest))
+        item["local_path"] = str(dest)
+    except Exception as e:
+        try:
+            Path(local_path).unlink(missing_ok=True)
+        except Exception:
+            pass
         item["status"] = QueueStatus.error
         _update_item(items, item)
-        raise HTTPException(500, f"ADB push failed: {push_err}")
+        raise HTTPException(500, f"Local save failed: {e}")
 
     item["status"] = QueueStatus.done
     _update_item(items, item)

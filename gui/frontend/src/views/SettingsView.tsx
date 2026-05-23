@@ -29,8 +29,8 @@ function FieldSkeleton() {
 export function SettingsView() {
   const { data: cfg, isLoading: cfgLoading, error: cfgError, mutate } = useSWR<Record<string, unknown>>('/config', fetcher)
   const [form, setForm] = useState({
-    client_id: '', client_secret: '', download_path: '', playlist_id: '',
-    auto_approve_threshold: 85, min_score_to_show: 40,
+    client_id: '', client_secret: '', playlist_id: '',
+    default_fmt: 'mp3', default_quality: 320,
   })
   const [saving,  setSaving]  = useState(false)
   const [saved,   setSaved]   = useState(false)
@@ -39,10 +39,11 @@ export function SettingsView() {
   useEffect(() => {
     if (cfg) setForm(f => ({
       ...f,
-      client_id:     (cfg.spotify_client_id     as string) ?? '',
-      client_secret: (cfg.spotify_client_secret as string) ?? '',
-      download_path: (cfg.download_folder       as string) ?? '',
-      playlist_id:   (cfg.playlist_id           as string) ?? '',
+      client_id:       (cfg.spotify_client_id     as string) ?? '',
+      client_secret:   (cfg.spotify_client_secret as string) ?? '',
+      playlist_id:     (cfg.playlist_id           as string) ?? '',
+      default_fmt:     (cfg.default_fmt           as string) ?? 'mp3',
+      default_quality: (cfg.default_quality       as number) ?? 320,
     }))
   }, [cfg])
 
@@ -50,7 +51,12 @@ export function SettingsView() {
     setSaving(true)
     setSaveErr(null)
     try {
-      await api.post('/config', form)
+      await api.post('/config', {
+        ...form,
+        download_path: '',
+        auto_approve_threshold: 85,
+        min_score_to_show: 40,
+      })
       mutate()
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -130,10 +136,6 @@ export function SettingsView() {
                     <input style={input} type="password" value={form.client_secret} onChange={e => set('client_secret', e.target.value)} placeholder="••••••••••••••••" />
                   </div>
                   <div>
-                    <span style={label}>Download Path</span>
-                    <input style={input} value={form.download_path} onChange={e => set('download_path', e.target.value)} placeholder="C:/Users/.../Music" />
-                  </div>
-                  <div>
                     <span style={label}>Spotify Playlist ID</span>
                     <input style={input} value={form.playlist_id} onChange={e => set('playlist_id', e.target.value)} placeholder="37i9dQZF1DX4SBhb3fqCJd" />
                     <span style={{ fontSize: 10, color: '#555', marginTop: 4, display: 'block' }}>
@@ -143,27 +145,6 @@ export function SettingsView() {
                 </>
               )}
 
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={label}>Auto-approve threshold</span>
-                  <span style={{ fontSize: 11, color: '#1DB954', fontFamily: 'monospace' }}>{form.auto_approve_threshold}%</span>
-                </div>
-                <input type="range" min={50} max={100} value={form.auto_approve_threshold}
-                  onChange={e => set('auto_approve_threshold', +e.target.value)}
-                  style={{ width: '100%', accentColor: '#1DB954' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={label}>Min score to show</span>
-                  <span style={{ fontSize: 11, color: '#F59B23', fontFamily: 'monospace' }}>{form.min_score_to_show}%</span>
-                </div>
-                <input type="range" min={0} max={85} value={form.min_score_to_show}
-                  onChange={e => set('min_score_to_show', +e.target.value)}
-                  style={{ width: '100%', accentColor: '#1DB954' }}
-                />
-              </div>
             </div>
           </div>
 

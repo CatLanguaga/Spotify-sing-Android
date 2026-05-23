@@ -20,6 +20,10 @@ class SpotifyConfig(BaseModel):
     playlist_id: str = ''
     auto_approve_threshold: int = 85
     min_score_to_show: int = 40
+    default_fmt: str = 'mp3'
+    default_quality: int = 320
+    default_range_from: int = 1
+    default_range_to: Optional[int] = None
 
 
 class QueueItem(BaseModel):

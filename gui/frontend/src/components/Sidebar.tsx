@@ -1,9 +1,8 @@
 import { useWindowWidth } from '../hooks/useWindowWidth'
 
-type View = 'compare' | 'queue' | 'monitor' | 'settings'
+type View = 'queue' | 'monitor' | 'settings'
 
 const NAV = [
-  { id: 'compare',  icon: '⇄', label: 'Compare'  },
   { id: 'queue',    icon: '↓', label: 'Queue'    },
   { id: 'monitor',  icon: '▶', label: 'Monitor'  },
   { id: 'settings', icon: '⚙', label: 'Settings' },
@@ -12,19 +11,11 @@ const NAV = [
 interface Props {
   active: View
   onNav: (v: View) => void
-  adbConnected?: boolean
-  adbScanning?: boolean
 }
 
-export function Sidebar({ active, onNav, adbConnected = false, adbScanning = false }: Props) {
+export function Sidebar({ active, onNav }: Props) {
   const width = useWindowWidth()
   const expanded = width >= 768
-
-  const dotColor = adbConnected ? '#1DB954' : adbScanning ? '#F59B23' : '#333'
-  const dotGlow  = adbConnected ? '0 0 6px #1DB954' : adbScanning ? '0 0 6px #F59B23' : 'none'
-  const dotAnim  = (adbConnected || adbScanning) ? 'pulse 2s infinite' : 'none'
-  const statusLabel = adbConnected ? 'Device connected' : adbScanning ? 'Scanning...' : 'No device'
-  const statusColor = adbConnected ? '#1DB954' : adbScanning ? '#F59B23' : '#555'
 
   return (
     <aside style={{
@@ -60,8 +51,8 @@ export function Sidebar({ active, onNav, adbConnected = false, adbScanning = fal
         </div>
         {expanded && (
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>Spotify Sync</div>
-            <div style={{ fontSize: 10, color: '#666', lineHeight: 1.2 }}>Manager</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>Spotify DL</div>
+            <div style={{ fontSize: 10, color: '#666', lineHeight: 1.2 }}>Downloader</div>
           </div>
         )}
       </div>
@@ -117,40 +108,7 @@ export function Sidebar({ active, onNav, adbConnected = false, adbScanning = fal
         })}
       </nav>
 
-      {/* Spacer */}
       <div style={{ flex: 1 }} />
-
-      {/* ADB status */}
-      {expanded ? (
-        <div style={{
-          margin: '0 8px', padding: '10px 12px',
-          background: '#0F0F0F', borderRadius: 8, border: '1px solid #1a1a1a',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <div style={{
-            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-            background: dotColor,
-            boxShadow: dotGlow,
-            animation: dotAnim,
-          }} />
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: statusColor }}>
-              {statusLabel}
-            </div>
-            <div style={{ fontSize: 10, color: '#444', marginTop: 1 }}>ADB</div>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <div style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: dotColor,
-            boxShadow: dotGlow,
-            animation: dotAnim,
-          }} />
-          <span style={{ fontSize: 8, color: '#666', fontFamily: 'monospace' }}>ADB</span>
-        </div>
-      )}
     </aside>
   )
 }
