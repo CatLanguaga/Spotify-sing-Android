@@ -141,6 +141,160 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 
 ---
 
+## Fase 6 — UX de visualización: límite + range slider dinámico
+
+> Decisión de diseño confirmada (2026-05-26): pivot a single-page, sin cola persistente. Resultados inline, descarga directa. Ver `gui/design-demos/demo-singlepage.html`.
+
+### Límite de 50 tracks por consulta
+
+- [ ] Constante backend `MAX_TRACKS_PER_REQUEST = 50` en `src/config.py` o env var
+- [ ] `GET /api/spotify/resolve?url=&offset=&limit=` — siempre `limit ≤ 50`
+- [ ] Backend ignora `limit > 50` y aplica clamp silencioso
+- [ ] Si `playlist.total > 50`: response incluye `total`, `returned`, `offset` — el frontend renderiza el slider
+- [ ] Cache de metadata Spotify por `playlist_id` (TTL 10 min) para no repegar a Spotify API cuando el usuario mueve el slider
+
+### Range slider dinámico (frontend)
+
+- [ ] Componente `<TrackRangeSlider />` con 2 handles (from / to)
+- [ ] Restricciones: `to - from ≤ 50`, `from ≥ 1`, `to ≤ playlist.total`
+- [ ] Al mover un handle: si la ventana intenta crecer > 50, el handle opuesto se desplaza automáticamente manteniendo `width = 50` (modo "ventana deslizante")
+- [ ] Modo "compactar": el usuario puede arrastrar el centro de la ventana para moverla completa sin cambiar el ancho
+- [ ] Visual: barra horizontal con marks cada 10, ventana resaltada en verde Spotify, texto `Mostrando 51–100 de 247`
+- [ ] Debounce 300 ms al refetch (`/api/spotify/resolve?offset=X&limit=Y`)
+- [ ] Estado URL: `?range=51-100` para deep-link / share
+- [ ] Botones rápidos: `[Primeras 50] [Siguientes 50] [Últimas 50]`
+
+### Edge cases
+
+- [ ] Playlist ≤ 50: ocultar slider, mostrar todo
+- [ ] Track individual / álbum < 50: sin slider
+- [ ] Loading skeleton mientras refetch (no parpadeo de tabla)
+- [ ] Persistir última ventana en `localStorage` por `playlist_id`
+
+---
+
+## Fase 7 — SEO + estructura de página
+
+> Pendiente: el usuario aportará skills específicas con detalles. Placeholder de items esperables abajo.
+
+### Meta + structured data
+
+- [ ] `<title>`, `<meta description>`, `<meta og:*>`, `<meta twitter:*>` dinámicos por vista
+- [ ] `<link rel="canonical">` correcto
+- [ ] JSON-LD `WebApplication` schema en home
+- [ ] `robots.txt` + `sitemap.xml` (rutas `/`, `/how-it-works`, `/faq`)
+- [ ] `<html lang="es">` + atributo `lang` por sección si hay multi-idioma
+
+### Performance / Core Web Vitals
+
+- [ ] Lazy-load de covers (`loading="lazy"`)
+- [ ] Preconnect a Spotify CDN (`i.scdn.co`)
+- [ ] Fonts: `font-display: swap` + subset preload
+- [ ] Inline critical CSS, defer no-critical
+- [ ] LCP < 2.5s, CLS < 0.1, INP < 200ms — verificar con Lighthouse
+
+### Estructura semántica
+
+- [ ] `<header>`, `<main>`, `<section>`, `<footer>` correctos
+- [ ] Heading hierarchy sin saltos (h1 → h2 → h3)
+- [ ] `<details>/<summary>` para FAQ (ya implementado en demo)
+- [ ] ARIA labels en botones de descarga e input principal
+- [ ] Focus rings visibles, navegación por teclado completa
+- [ ] Skip-link "Saltar al contenido"
+
+### Accesibilidad WCAG AA mínimo
+
+- [ ] Contraste texto ≥ 4.5:1 (verificar acento verde sobre blanco)
+- [ ] `prefers-reduced-motion` respetado en animaciones
+- [ ] `aria-live` para estados de descarga (lector de pantalla anuncia "descargado")
+- [ ] Labels asociados a todos los inputs (`<label for>`)
+
+---
+
+## Fase 8 — Mejorar matching YouTube (reducir errores y descargas erróneas)
+
+### Scoring del match
+
+- [ ] Algoritmo de score considera: duración (±3s del Spotify duration), artista normalizado (lowercase, sin features), título normalizado (quitar `(Official Video)`, `[MV]`, `Lyric Video`, etc.), año, canal verificado
+- [ ] Threshold mínimo: si `score < 65` no auto-descarga, abre modal de revisión con top 3 alternativas
+- [ ] Threshold óptimo: si `score ≥ 90` auto-descarga sin confirmación
+
+### Estrategias de búsqueda
+
+- [ ] Query primaria: `"Artista" "Título" topic` (canales "Topic" de YouTube son re-uploads oficiales del label, suelen ser exactos)
+- [ ] Fallback 1: `"Artista" "Título" audio` (excluye videos)
+- [ ] Fallback 2: `"Artista" "Título" lyrics` (suele ser audio limpio)
+- [ ] Fallback 3: query simple sin comillas
+- [ ] Filtrar resultados con duración fuera de ±10s del track Spotify
+- [ ] Penalizar canales con palabras flag: `cover`, `remix`, `karaoke`, `8d`, `slowed`, `sped up`, `nightcore`, `live` (a menos que el track Spotify ya sea live)
+
+### Manual override
+
+- [ ] Botón "Buscar manualmente" en cada track → modal con search bar YouTube + preview embeds
+- [ ] Botón "Pegar URL de YouTube" para forzar source específico
+- [ ] Persistir overrides exitosos por `spotify_id` en cache local (si el usuario corrigió un track, recordarlo)
+
+### Calidad del audio source
+
+- [ ] Preferir streams con bitrate más alto disponible (ya implementado parcialmente)
+- [ ] Si el bitrate del source < bitrate destino solicitado: warning visible al usuario
+- [ ] Detectar y rechazar streams "music" cortos (intros, sketches) por duración
+
+---
+
+## Fase 9 — Sugerencias adicionales (priorizadas)
+
+### 🔥 Alto impacto
+
+- [ ] **Persistencia de credenciales Spotify por sesión** (cookie/localStorage encriptado) — no pedir al usuario repegar Client ID cada visita
+- [ ] **Soporte para Spotify shortlinks** `spotify.link/xyz` (302 redirect a URL real) — los usuarios mobile comparten estos
+- [ ] **Rate limiting backend** por IP (10 reqs/min) para auto-hosted públicos
+- [ ] **Caché de búsqueda YouTube** por `spotify_id` — si 5 usuarios piden el mismo track, no buscamos 5 veces
+- [ ] **Detección de geo-restricción YouTube**: si el track falla por región, sugerir VPN o source alternativo
+- [ ] **Sanitización de filenames** para CJK / árabe / emojis (algunos sistemas de archivos rompen)
+
+### ⚡ Medio impacto
+
+- [ ] **Concurrencia configurable** — descargas paralelas (default 3, max 5) ajustable por user
+- [ ] **Resume de descargas**: si yt-dlp/pytubefix falla a mitad, reanudar desde byte X (cuando el source lo permite)
+- [ ] **Hash check del audio**: SHA256 del archivo descargado mostrado, para verificar integridad
+- [ ] **ZIP download** del lote completo (mencionado en demo, falta implementar): zip server-side + stream al browser
+- [ ] **Drag & drop URL** sobre el input grande del hero
+- [ ] **Detección automática de paste**: si el usuario pega URL válida, auto-submit sin click
+- [ ] **Keyboard shortcuts**: `Cmd/Ctrl+V` desde cualquier parte, `Enter` para buscar, `D` para descargar todo
+- [ ] **Dark mode toggle** con `prefers-color-scheme` por defecto
+- [ ] **i18n ES/EN** mínimo — JSON de strings, switch en footer
+- [ ] **Progress bar realista** vía WebSocket (ya existe `ws_runner`) — parsea `[X/Y]` de pytubefix/ffmpeg
+
+### 🌱 Bajo impacto / nice-to-have
+
+- [ ] **PWA**: manifest + service worker para instalar en mobile
+- [ ] **Tema "stealth"**: dark mode + sin animaciones, para escritorios corporativos
+- [ ] **Embed metadata extra**: BPM, key (extraíble vía librería como `librosa`) — útil para DJs
+- [ ] **Lyrics embed**: si Spotify devuelve lyrics, embeber como tag USLT en el mp3
+- [ ] **Soporte para Spotify podcasts** (si la API lo permite) — los episodios suelen tener audio source más limpio
+- [ ] **CLI companion**: un `pip install spotify-sing` que use el mismo backend, para integrar en scripts
+- [ ] **Webhook on-complete**: para auto-hosted, callback POST cuando un job termina
+- [ ] **Telemetría opcional self-hosted** (Plausible/Umami) — sin trackers third-party
+
+### 🛡️ Seguridad / robustez
+
+- [ ] **CSRF protection** en endpoints POST (FastAPI middleware)
+- [ ] **CORS estricto** — solo dominio configurado, no `*`
+- [ ] **Input validation Pydantic estricta** en todos los body params
+- [ ] **Filename sanitization** server-side antes de `FileResponse` (path traversal protection)
+- [ ] **Limit de tamaño de descarga** por archivo (default 50 MB, configurable)
+- [ ] **Auto-cleanup** del `temp_downloads/` cada 30 min para archivos huérfanos (job interrumpido)
+- [ ] **Logging sin PII**: nunca loggear el query del usuario completo en producción
+
+### 📊 Observabilidad
+
+- [ ] **Endpoint `/api/stats`**: tracks descargados, errores, success rate (solo admin)
+- [ ] **Health checks granulares**: `/health/spotify`, `/health/youtube`, `/health/ffmpeg`
+- [ ] **Error tracking opcional** (Sentry self-hosted) — sin datos del usuario, solo stack traces
+
+---
+
 ## Referencia técnica — Qué queda, qué se va, qué cambia
 
 | Componente | Estado |
