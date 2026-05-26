@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spotify Sing — descarga directa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:         #FBFBF8;
+    --bg-2:       #F2F1EC;
+    --ink:        #0F0F11;
+    --ink-soft:   #5C5C62;
+    --ink-faint:  #9A9A9F;
+    --rule:       #E4E2DA;
+    --rule-soft:  #EFEDE5;
+    --accent:     #1DB954;   /* Spotify green, single accent */
+    --accent-dk:  #168A40;
+    --warn:       #B45309;
+    --err:        #B42323;
+    --ok:         #168A40;
+
+    --font-display: 'Inter', system-ui, sans-serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+
+    --radius:  10px;
+    --shadow:  0 1px 2px rgba(15,15,17,0.04), 0 8px 24px rgba(15,15,17,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-dk); text-decoration: none; }
+  a:hover { color: var(--ink); }
+
+  /* ── Top bar ─────────────────────────────────────────────────────────── */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 22px 36px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .brand {
+    font-weight: 800; font-size: 18px;
+    letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .brand .logo {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 99px;
+    display: grid; place-items: center;
+    color: #fff; font-size: 16px; font-weight: 900;
+  }
+  .topbar nav { display: flex; gap: 28px; font-size: 14px; }
+  .topbar nav a { color: var(--ink-soft); font-weight: 500; }
+  .topbar nav a:hover { color: var(--ink); }
+
+  /* ── Hero ────────────────────────────────────────────────────────────── */
+  .hero {
+    max-width: 760px;
+    margin: 56px auto 0;
+    padding: 0 24px;
+    text-align: center;
+  }
+  .hero .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--bg-2);
+    padding: 6px 12px;
+    border-radius: 99px;
+    margin-bottom: 24px;
+  }
+  .hero .kicker::before {
+    content: ""; width: 6px; height: 6px;
+    background: var(--accent); border-radius: 99px;
+  }
+  .hero h1 {
+    font-size: 56px;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin: 0 0 18px;
+  }
+  .hero h1 .em { color: var(--accent-dk); }
+  .hero p.sub {
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 560px;
+    margin: 0 auto 36px;
+  }
+
+  .input-wrap {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 8px 8px 8px 20px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: var(--shadow);
+    transition: border-color 200ms;
+  }
+  .input-wrap:focus-within { border-color: var(--accent); }
+  .input-wrap .icon {
+    color: var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .input-wrap input {
+    flex: 1; border: 0; outline: 0;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--ink);
+    padding: 14px 0;
+    background: transparent;
+    min-width: 0;
+  }
+  .input-wrap input::placeholder { color: var(--ink-faint); }
+  .input-wrap .clear {
+    background: var(--bg-2); border: 0;
+    width: 28px; height: 28px;
+    border-radius: 99px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: background 150ms;
+  }
+  .input-wrap .clear:hover { background: var(--rule); color: var(--ink); }
+
+  .btn {
+    background: var(--ink);
+    color: #fff;
+    border: 0;
+    padding: 14px 24px;
+    font-family: var(--font-body);
+    font-weight: 600; font-size: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 150ms, transform 150ms;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: var(--accent-dk); }
+  .btn:active { transform: scale(0.98); }
+  .btn.btn-accent { background: var(--accent); }
+  .btn.btn-accent:hover { background: var(--accent-dk); }
+  .btn.btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+  }
+  .btn.btn-ghost:hover { background: var(--bg-2); border-color: var(--ink); }
+  .btn.sm { padding: 8px 14px; font-size: 13px; }
+  .btn.icon-only { padding: 10px; border-radius: 99px; }
+
+  .hero .detected {
+    margin-top: 18px;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ok);
+    background: rgba(29,185,84,0.08);
+    padding: 6px 14px;
+    border-radius: 99px;
+  }
+  .hero .detected::before {
+    content: "✓"; font-weight: 800;
+  }
+  .hero .examples {
+    margin-top: 32px;
+    display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .hero .examples span { color: var(--ink-faint); }
+  .hero .examples button {
+    background: transparent; border: 1px dashed var(--rule);
+    padding: 6px 12px;
+    border-radius: 99px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .hero .examples button:hover { border-color: var(--accent); color: var(--accent-dk); border-style: solid; }
+
+  /* ── Results section ─────────────────────────────────────────────────── */
+  .results {
+    max-width: 1000px;
+    margin: 72px auto 0;
+    padding: 0 24px;
+  }
+
+  .pl-card {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+  }
+
+  .pl-head {
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .pl-cover {
+    width: 140px; height: 140px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1DB954 0%, #168A40 40%, #0F0F11 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .pl-cover::after {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 70% 30%, rgba(255,255,255,0.18) 0%, transparent 60%);
+  }
+  .pl-info .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .pl-info h2 {
+    font-size: 32px; line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 10px;
+  }
+  .pl-info .stats {
+    font-size: 14px; color: var(--ink-soft);
+  }
+  .pl-info .stats strong { color: var(--ink); font-weight: 600; }
+
+  .pl-actions {
+    display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+    min-width: 220px;
+  }
+  .pl-actions .options {
+    display: flex; gap: 6px;
+  }
+  .pl-actions select {
+    appearance: none; -webkit-appearance: none;
+    background: var(--bg-2);
+    border: 1px solid var(--rule);
+    padding: 8px 24px 8px 12px;
+    border-radius: 8px;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+    flex: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%235C5C62' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  /* Toolbar inside playlist card */
+  .pl-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    margin-bottom: 4px;
+  }
+  .pl-toolbar .search {
+    flex: 1;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--ink-faint);
+  }
+  .pl-toolbar .search input {
+    border: 0; outline: 0; background: transparent;
+    font-size: 14px; flex: 1;
+    color: var(--ink);
+  }
+  .pl-toolbar .count {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  /* Tracks list */
+  .tracks { display: flex; flex-direction: column; }
+  .track {
+    display: grid;
+    grid-template-columns: 28px 44px 1fr 70px 60px auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .track:last-child { border-bottom: 0; }
+  .track:hover { background: var(--bg); border-radius: 8px; }
+
+  .track .idx {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+  .track .cover {
+    width: 44px; height: 44px;
+    border-radius: 6px;
+    background-size: cover;
+  }
+  .track .tx .t {
+    font-weight: 600; font-size: 15px;
+    line-height: 1.3;
+  }
+  .track .tx .a {
+    font-size: 13px; color: var(--ink-soft);
+    line-height: 1.3;
+  }
+  .track .lang {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: var(--bg-2);
+    padding: 3px 8px;
+    border-radius: 99px;
+    color: var(--ink-soft);
+    text-align: center;
+    width: fit-content;
+    justify-self: center;
+  }
+  .track .dur {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+  .track .dl-btn {
+    background: var(--accent);
+    color: #fff;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600; font-size: 13px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background 150ms, transform 150ms;
+    min-width: 110px;
+    justify-content: center;
+  }
+  .track .dl-btn:hover { background: var(--accent-dk); }
+  .track .dl-btn:active { transform: scale(0.97); }
+  .track.downloading .dl-btn {
+    background: var(--bg-2);
+    color: var(--ink);
+    cursor: default;
+  }
+  .track.done .dl-btn {
+    background: rgba(29,185,84,0.12);
+    color: var(--ok);
+  }
+  .track.err .dl-btn {
+    background: rgba(180,35,35,0.1);
+    color: var(--err);
+  }
+
+  /* Mini progress under downloading row */
+  .track .progress-mini {
+    grid-column: 1 / -1;
+    height: 2px;
+    background: var(--rule-soft);
+    margin-top: 8px;
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+  }
+  .track .progress-mini .bar {
+    position: absolute; left: 0; top: 0;
+    height: 100%; background: var(--accent);
+    border-radius: 99px;
+    transition: width 300ms ease-out;
+  }
+
+  /* Card foot — bulk action */
+  .pl-foot {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule-soft);
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px;
+  }
+  .pl-foot .msg {
+    font-size: 14px; color: var(--ink-soft);
+  }
+  .pl-foot .msg strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Tutorial ────────────────────────────────────────────────────────── */
+  .tutorial {
+    max-width: 1000px;
+    margin: 96px auto 0;
+    padding: 0 24px;
+  }
+  .section-title {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .section-title .kicker {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--accent-dk);
+    margin-bottom: 12px;
+  }
+  .section-title h2 {
+    font-size: 36px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .steps {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+  }
+  .step {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    transition: border-color 200ms, transform 200ms;
+  }
+  .step:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .step .num {
+    width: 36px; height: 36px;
+    border-radius: 99px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700; font-size: 16px;
+    display: grid; place-items: center;
+    margin-bottom: 16px;
+  }
+  .step h3 {
+    font-size: 18px; font-weight: 700;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .step p {
+    font-size: 14px; color: var(--ink-soft); margin: 0;
+    line-height: 1.55;
+  }
+  .step .demo-line {
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--bg-2);
+    padding: 8px 10px;
+    border-radius: 6px;
+    word-break: break-all;
+  }
+  .step .demo-line .hl { color: var(--accent-dk); }
+
+  /* FAQ */
+  .faq {
+    max-width: 720px;
+    margin: 64px auto 0;
+  }
+  .faq h3 {
+    font-size: 22px;
+    margin: 0 0 24px;
+    text-align: center;
+    font-weight: 700;
+  }
+  .faq details {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 8px;
+    transition: border-color 200ms;
+  }
+  .faq details[open] { border-color: var(--accent); }
+  .faq summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+";
+    font-size: 22px; color: var(--ink-faint);
+    transition: transform 200ms;
+  }
+  .faq details[open] summary::after { content: "−"; color: var(--accent); }
+  .faq details p {
+    margin: 12px 0 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────────────── */
+  footer {
+    max-width: 1100px;
+    margin: 96px auto 0;
+    padding: 36px 24px;
+    border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+  footer .links { display: flex; gap: 20px; }
+
+  /* ── Empty state ─────────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 80px 24px;
+    color: var(--ink-faint);
+  }
+  .empty-state .ico {
+    width: 64px; height: 64px;
+    border-radius: 99px;
+    background: var(--bg-2);
+    display: grid; place-items: center;
+    margin: 0 auto 18px;
+    font-size: 28px;
+  }
+  .empty-state h3 { color: var(--ink-soft); margin: 0 0 6px; font-weight: 600; font-size: 18px; }
+  .empty-state p { margin: 0; font-size: 14px; }
+
+  /* Responsive */
+  @media (max-width: 760px) {
+    .topbar { padding: 18px 20px; }
+    .topbar nav { display: none; }
+    .hero { margin-top: 32px; }
+    .hero h1 { font-size: 36px; }
+    .hero p.sub { font-size: 16px; }
+    .input-wrap { flex-direction: column; padding: 12px; align-items: stretch; }
+    .input-wrap input { padding: 10px 4px; font-size: 14px; }
+    .input-wrap .btn { width: 100%; justify-content: center; }
+    .input-wrap .clear { align-self: flex-end; }
+    .pl-card { padding: 20px; }
+    .pl-head { grid-template-columns: 1fr; text-align: left; }
+    .pl-cover { width: 80px; height: 80px; }
+    .pl-actions { width: 100%; }
+    .track {
+      grid-template-columns: 44px 1fr auto;
+      gap: 12px;
+    }
+    .track .idx, .track .lang, .track .dur { display: none; }
+    .pl-toolbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .steps { grid-template-columns: 1fr; }
+    .section-title h2 { font-size: 28px; }
+    footer { flex-direction: column; gap: 12px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">♪</span>
+    Spotify Sing
+  </div>
+  <nav>
+    <a href="#tutorial">¿Cómo funciona?</a>
+    <a href="#faq">FAQ</a>
+    <a href="#">Configuración</a>
+  </nav>
+</header>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="kicker">Descarga directa · sin cuenta · sin cola</div>
+  <h1>Pega el link.<br><span class="em">Descarga la música.</span></h1>
+  <p class="sub">Pasa una URL de Spotify y guarda los archivos en tu dispositivo. Track, álbum o playlist completa — sin esperar, sin teléfono, sin instalar nada.</p>
+
+  <form class="input-wrap" onsubmit="event.preventDefault(); showResults();">
+    <span class="icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-1 1"/><path d="M14 10a3.5 3.5 0 0 0-5 0l-4 4a3.5 3.5 0 0 0 5 5l1-1"/></svg>
+    </span>
+    <input id="url" placeholder="https://open.spotify.com/playlist/..." value="https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M" />
+    <button type="button" class="clear" onclick="document.getElementById('url').value='';">×</button>
+    <button type="submit" class="btn btn-accent">Buscar →</button>
+  </form>
+
+  <div class="detected">Playlist detectada · 6 tracks</div>
+
+  <div class="examples">
+    <span>Pruébalo:</span>
+    <button>track</button>
+    <button>álbum</button>
+    <button>playlist</button>
+  </div>
+</section>
+
+<!-- ── Results ── -->
+<section class="results" id="results">
+  <div class="pl-card">
+
+    <div class="pl-head">
+      <div class="pl-cover"></div>
+      <div class="pl-info">
+        <div class="kicker">Spotify Editorial · Playlist</div>
+        <h2>Today's Top Hits</h2>
+        <div class="stats">
+          <strong>6 tracks</strong> · <strong>21 min</strong> · actualizada hoy
+        </div>
+      </div>
+      <div class="pl-actions">
+        <div class="options">
+          <select><option>mp3</option><option>m4a</option><option>opus</option></select>
+          <select><option>320 kbps</option><option>192 kbps</option><option>128 kbps</option></select>
+        </div>
+        <button class="btn btn-accent" onclick="downloadAll()">
+          ⬇ Descargar todo (6)
+        </button>
+      </div>
+    </div>
+
+    <div class="pl-toolbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        <input placeholder="Filtrar título o artista" />
+      </div>
+      <div class="count">6 canciones</div>
+    </div>
+
+    <div class="tracks" id="tracks">
+      <div class="track" data-id="1">
+        <div class="idx">1</div>
+        <div class="cover" style="background:linear-gradient(135deg,#FF7D38,#0F0F11);"></div>
+        <div class="tx"><div class="t">Espresso</div><div class="a">Sabrina Carpenter</div></div>
+        <div class="lang">EN</div>
+        <div class="dur">2:55</div>
+        <button class="dl-btn" onclick="downloadOne(this)">⬇ Descargar</button>
+      </div>
+      <div class="track" data-id="2">
+        <div class="idx">2</div>
+        <div class="cover" style="background:linear-gradient(135deg,#1DB954,#0F0F11);"></div>
+        <div class="tx"><div class="t">Birds of a Feather</div><div class="a">Billie Eilish</div></div>
+        <div class="lang">EN</div>
+        <div class="dur">3:30</div>
+        <button class="dl-btn" onclick="downloadOne(this)">⬇ Descargar</button>
+      </div>
+      <div class="track" data-id="3">
+        <div class="idx">3</div>
+        <div class="cover" style="background:linear-gradient(135deg,#B45309,#0F0F11);"></div>
+        <div class="tx"><div class="t">夜に駆ける</div><div class="a">YOASOBI</div></div>
+        <div class="lang">JP</div>
+        <div class="dur">4:21</div>
+        <button class="dl-btn" onclick="downloadOne(this)">⬇ Descargar</button>
+      </div>
+      <div class="track" data-id="4">
+        <div class="idx">4</div>
+        <div class="cover" style="background:linear-gradient(135deg,#5B4DFF,#0F0F11);"></div>
+        <div class="tx"><div class="t">DtMF</div><div class="a">Bad Bunny</div></div>
+        <div class="lang">ES</div>
+        <div class="dur">3:58</div>
+        <button class="dl-btn" onclick="downloadOne(this)">⬇ Descargar</button>
+      </div>
+      <div class="track" data-id="5">
+        <div class="idx">5</div>
+        <div class="cover" style="background:linear-gradient(135deg,#B42323,#0F0F11);"></div>
+        <div class="tx"><div class="t">FORTNIGHT</div><div class="a">Taylor Swift, Post Malone</div></div>
+        <div class="lang">EN</div>
+        <div class="dur">3:48</div>
+        <button class="dl-btn" onclick="downloadOne(this)">⬇ Descargar</button>
+      </div>
+      <div class="track" data-id="6">
+        <div class="idx">6</div>
+        <div class="cover" style="background:linear-gradient(135deg,#2A2A2E,#0F0F11);"></div>
+        <div class="tx"><div class="t">APT.</div><div class="a">ROSÉ, Bruno Mars</div></div>
+        <div class="lang">KR</div>
+        <div class="dur">2:49</div>
+        <button class="dl-btn" onclick="downloadOne(this)">⬇ Descargar</button>
+      </div>
+    </div>
+
+    <div class="pl-foot">
+      <div class="msg"><strong>0</strong> de 6 descargados · Las descargas se procesan en paralelo.</div>
+      <button class="btn btn-ghost sm">Descargar como .ZIP</button>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Tutorial ── -->
+<section class="tutorial" id="tutorial">
+  <div class="section-title">
+    <div class="kicker">Cómo funciona</div>
+    <h2>3 pasos, sin instalar nada</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="num">1</div>
+      <h3>Copia un link de Spotify</h3>
+      <p>Abre Spotify (web o app), encuentra el track, álbum o playlist que quieras, dale a "Compartir → Copiar enlace".</p>
+      <div class="demo-line">https://<span class="hl">open.spotify.com/playlist/</span>37i9dQZF...</div>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <h3>Pégalo arriba</h3>
+      <p>Pega el link en el cuadro principal. La app detecta automáticamente si es un track, un álbum o una playlist completa.</p>
+      <div class="demo-line">Track · Álbum · <span class="hl">Playlist ✓</span></div>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <h3>Descarga al instante</h3>
+      <p>Elige formato (mp3/m4a/opus) y calidad (320/192/128 kbps). Dale a "Descargar todo" o descarga canciones sueltas. Los archivos llegan directo a tu carpeta de descargas.</p>
+      <div class="demo-line"><span class="hl">⬇</span> mp3 · 320 kbps · ~21 MB</div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq" id="faq">
+    <h3>Preguntas frecuentes</h3>
+
+    <details open>
+      <summary>¿Necesito una cuenta de Spotify?</summary>
+      <p>No para usar la app — pero el servidor sí necesita credenciales de la API de Spotify (gratis) configuradas por quien hospeda la app. Si tú la auto-hospedas, créalas en developer.spotify.com/dashboard. Si usas una instancia pública, ya están configuradas.</p>
+    </details>
+
+    <details>
+      <summary>¿De dónde sale el audio?</summary>
+      <p>La app obtiene metadata (título, artista, álbum, cover) desde la API oficial de Spotify, y luego busca el audio en YouTube usando el match más fiel posible. Por eso el resultado depende de qué tan disponible esté el track en YouTube.</p>
+    </details>
+
+    <details>
+      <summary>¿Qué formato y calidad debo elegir?</summary>
+      <p><strong>mp3 a 320 kbps</strong> es la opción más compatible con cualquier reproductor o coche. <strong>m4a</strong> tiene mejor relación calidad/tamaño. <strong>opus</strong> es ultra eficiente pero requiere reproductores modernos.</p>
+    </details>
+
+    <details>
+      <summary>¿Hay límite de canciones por playlist?</summary>
+      <p>No hay límite duro, pero playlists de 200+ canciones se procesan secuencialmente y pueden tardar varios minutos. Para colecciones gigantes, conviene descargar por bloques.</p>
+    </details>
+
+    <details>
+      <summary>¿Es legal?</summary>
+      <p>El uso para copia personal de música que ya posees o tienes derecho a escuchar varía por país. Esta herramienta es de uso bajo tu propia responsabilidad. No la uses para redistribuir contenido protegido.</p>
+    </details>
+
+    <details>
+      <summary>¿Qué pasa si un track falla?</summary>
+      <p>El botón cambia a rojo y aparece la opción "Reintentar". Suele ser por restricciones regionales en YouTube — puedes reintentar o buscar manualmente otra fuente.</p>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 Spotify Sing · Self-hosted</div>
+  <div class="links">
+    <a href="#">GitHub</a>
+    <a href="#">Docs</a>
+    <a href="#">Powered by Spotify Web API</a>
+  </div>
+</footer>
+
+<script>
+  // Simulated download flow (frontend mock)
+  function downloadOne(btn) {
+    const track = btn.closest('.track');
+    if (track.classList.contains('downloading') || track.classList.contains('done')) return;
+
+    track.classList.add('downloading');
+    btn.innerHTML = '⏳ Descargando…';
+
+    // mini progress bar
+    let prog = track.querySelector('.progress-mini');
+    if (!prog) {
+      prog = document.createElement('div');
+      prog.className = 'progress-mini';
+      prog.innerHTML = '<div class="bar" style="width:0%;"></div>';
+      track.appendChild(prog);
+    }
+    const bar = prog.querySelector('.bar');
+    let pct = 0;
+    const tick = setInterval(() => {
+      pct += Math.random() * 18 + 5;
+      if (pct >= 100) {
+        pct = 100;
+        bar.style.width = '100%';
+        clearInterval(tick);
+        setTimeout(() => {
+          track.classList.remove('downloading');
+          track.classList.add('done');
+          btn.innerHTML = '✓ Descargado';
+          prog.remove();
+          updateFootCount();
+        }, 250);
+      } else {
+        bar.style.width = pct + '%';
+      }
+    }, 280);
+  }
+
+  function downloadAll() {
+    document.querySelectorAll('.track').forEach((t, i) => {
+      setTimeout(() => {
+        if (!t.classList.contains('done') && !t.classList.contains('downloading')) {
+          downloadOne(t.querySelector('.dl-btn'));
+        }
+      }, i * 180);
+    });
+  }
+
+  function updateFootCount() {
+    const total = document.querySelectorAll('.track').length;
+    const done  = document.querySelectorAll('.track.done').length;
+    const msg = document.querySelector('.pl-foot .msg');
+    msg.innerHTML = `<strong>${done}</strong> de ${total} descargados · Las descargas se procesan en paralelo.`;
+  }
+
+  function showResults() {
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spotify Sing — Vinyl Diary (Direction C)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:      #F4F0E8;
+    --paper-2:    #ECE6D9;
+    --ink:        #1C1A17;
+    --ink-soft:   #6B6457;
+    --ink-faint:  #A39C8C;
+    --rule:       #C9C1AF;
+    --rule-soft:  #DCD5C3;
+    --rust:       #A8421F;
+    --rust-deep:  #842F12;
+    --leaf:       #5A6B3F;
+
+    --font-display: 'Newsreader', Georgia, serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ── App shell ───────────────────────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    padding: 56px 36px;
+    position: sticky; top: 0;
+    height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.1;
+    margin-bottom: 56px;
+    color: var(--ink);
+  }
+  .brand .amp { color: var(--rust); }
+  .brand small {
+    display: block;
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+
+  .nav { display: flex; flex-direction: column; gap: 22px; }
+  .nav a {
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-family: var(--font-display);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: baseline; gap: 12px;
+    transition: color 200ms ease-out;
+  }
+  .nav a:hover { color: var(--ink); }
+  .nav a .num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+  }
+  .nav a.active { color: var(--ink); font-style: italic; }
+  .nav a.active::before {
+    content: ""; display: inline-block;
+    width: 18px; height: 1px;
+    background: var(--rust);
+    margin-right: -4px;
+    align-self: center;
+  }
+  .nav a .count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--rust);
+    margin-left: 4px;
+  }
+
+  .sidebar-foot {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    line-height: 1.8;
+  }
+  .sidebar-foot .ornament {
+    font-family: var(--font-display); font-style: italic;
+    color: var(--rust); font-size: 14px; text-transform: none;
+    letter-spacing: 0; margin-bottom: 8px;
+  }
+
+  /* ── Main ────────────────────────────────────────────────────────────── */
+  .main {
+    padding: 72px 96px 120px;
+    max-width: 920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .crumb {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 48px;
+  }
+  .crumb .sep { padding: 0 10px; opacity: 0.5; }
+
+  h1.display {
+    font-family: var(--font-display);
+    font-size: 72px;
+    line-height: 1.0;
+    letter-spacing: -0.015em;
+    font-weight: 400;
+    margin: 0 0 28px;
+    color: var(--ink);
+  }
+  h1.display em { color: var(--rust); }
+  p.lead {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 560px;
+    margin: 0 0 56px;
+  }
+
+  /* Hairline rule */
+  .hairline {
+    height: 1px; background: var(--rule);
+    margin: 56px 0;
+    width: 100%;
+  }
+  .hairline-thin { background: var(--rule-soft); }
+
+  /* ── Hero input ───────────────────────────────────────────────────── */
+  .hero-input {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid var(--ink);
+    background: transparent;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 22px;
+    color: var(--ink);
+    padding: 14px 0;
+    outline: 0;
+  }
+  .hero-input::placeholder { color: var(--ink-faint); }
+
+  .hero-actions {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 16px;
+  }
+  .hero-detected {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--rust);
+  }
+  .hero-detected::before {
+    content: "○ "; color: var(--rust);
+  }
+
+  .btn {
+    background: transparent;
+    color: var(--ink);
+    border: 0;
+    border-bottom: 1px solid var(--ink);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 17px;
+    padding: 6px 2px;
+    cursor: pointer;
+    transition: color 200ms ease-out, border-color 200ms ease-out;
+  }
+  .btn:hover { color: var(--rust); border-bottom-color: var(--rust); }
+  .btn.btn-solid {
+    background: var(--ink);
+    color: var(--paper);
+    border: 0;
+    padding: 14px 28px;
+    font-size: 14px;
+  }
+  .btn.btn-solid:hover { background: var(--rust); color: var(--paper); }
+  .btn.btn-rust {
+    background: var(--rust); color: var(--paper);
+    padding: 12px 24px; font-size: 13px; border: 0;
+  }
+  .btn.btn-rust:hover { background: var(--rust-deep); }
+  .btn.sm { font-size: 13px; padding: 4px 0; }
+
+  .hero-examples {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule-soft);
+    margin-top: 64px;
+  }
+  .hero-examples > div {
+    padding: 24px 24px 24px 0;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .hero-examples > div:last-child { border-right: 0; padding-right: 0; }
+  .hero-examples .num {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 28px;
+    color: var(--rust);
+    line-height: 1; margin-bottom: 6px;
+  }
+  .hero-examples .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .hero-examples .ex {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  /* ── Playlist view ───────────────────────────────────────────────────── */
+  .pl-header {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 40px;
+    align-items: end;
+    margin-bottom: 56px;
+  }
+  .pl-cover {
+    width: 200px; height: 200px;
+    background:
+      radial-gradient(circle at 30% 30%, #C25638 0%, #842F12 60%, #1C1A17 100%);
+    position: relative;
+  }
+  .pl-cover::after {
+    content: "PLAYLIST · COVER";
+    position: absolute; left: 10px; bottom: 10px;
+    font-family: var(--font-mono);
+    font-size: 8px; letter-spacing: 0.2em;
+    color: rgba(244,240,232,0.6);
+  }
+  .pl-meta .kicker {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 14px;
+  }
+  .pl-meta h2 {
+    font-family: var(--font-display);
+    font-size: 52px;
+    line-height: 1.0;
+    letter-spacing: -0.01em;
+    font-weight: 400;
+    margin: 0 0 20px;
+  }
+  .pl-meta h2 em { color: var(--rust); }
+  .pl-stats {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 15px;
+    color: var(--ink-soft);
+  }
+  .pl-stats .dot { color: var(--ink-faint); margin: 0 8px; }
+
+  .pl-toolbar {
+    display: flex; gap: 24px; align-items: baseline;
+    margin: 48px 0 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .pl-toolbar input {
+    flex: 1; border: 0; outline: 0;
+    background: transparent;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink);
+  }
+  .pl-toolbar input::placeholder { color: var(--ink-faint); }
+  .pl-filters {
+    display: flex; gap: 18px;
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .pl-filters span { color: var(--ink-faint); cursor: pointer; transition: color 200ms; }
+  .pl-filters span:hover { color: var(--ink); }
+  .pl-filters span.on { color: var(--rust); }
+
+  .track-list { list-style: none; margin: 0; padding: 0; }
+  .track-list li {
+    display: grid;
+    grid-template-columns: 28px 28px 1fr 180px 60px 56px;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .track-list li:hover { background: var(--paper-2); }
+  .track-list .idx {
+    font-family: var(--font-display); font-style: italic;
+    color: var(--ink-faint);
+    font-size: 15px;
+  }
+  .track-list .ck { display: flex; align-items: center; justify-content: center; }
+  .track-list .ck input {
+    appearance: none; -webkit-appearance: none;
+    width: 14px; height: 14px; margin: 0;
+    border: 1px solid var(--ink-soft);
+    background: transparent;
+    cursor: pointer; border-radius: 0;
+    position: relative;
+  }
+  .track-list .ck input:checked { border-color: var(--rust); }
+  .track-list .ck input:checked::after {
+    content: "✓";
+    position: absolute;
+    top: -5px; left: 1px;
+    font-family: var(--font-display); font-style: italic;
+    font-size: 16px;
+    color: var(--rust);
+  }
+  .track-list .title { font-family: var(--font-display); font-size: 18px; line-height: 1.3; }
+  .track-list .title .a { font-style: italic; color: var(--ink-soft); font-size: 14px; display: block; }
+  .track-list .album {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 13px; color: var(--ink-soft);
+  }
+  .track-list .lang {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .track-list .dur {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-faint); text-align: right;
+  }
+
+  /* Sticky bar */
+  .pl-sticky {
+    position: sticky; bottom: 24px;
+    margin: 48px 0 0;
+    padding: 18px 28px;
+    background: var(--ink);
+    color: var(--paper);
+    display: flex; align-items: center; gap: 28px;
+    font-family: var(--font-display);
+    font-size: 15px;
+  }
+  .pl-sticky .count { flex: 1; }
+  .pl-sticky .count em { color: var(--rust); font-style: normal; }
+  .pl-sticky .field { display: inline-flex; align-items: baseline; gap: 8px; }
+  .pl-sticky .field label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(244,240,232,0.5);
+  }
+  .pl-sticky .field select {
+    appearance: none; background: transparent; border: 0;
+    color: var(--paper);
+    font-family: var(--font-display);
+    font-style: italic; font-size: 15px;
+    outline: 0; cursor: pointer;
+    border-bottom: 1px solid rgba(244,240,232,0.3);
+    padding-bottom: 2px;
+  }
+  .pl-sticky .btn-rust { font-family: var(--font-display); font-style: italic; font-size: 14px; }
+
+  /* ── Queue ───────────────────────────────────────────────────────────── */
+  .q-meta {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 17px; color: var(--ink-soft);
+    margin-bottom: 28px;
+  }
+  .q-meta em { color: var(--rust); font-style: normal; font-weight: 500; }
+  .q-actions { display: flex; gap: 28px; margin-bottom: 32px; }
+
+  .q-list { list-style: none; margin: 0; padding: 0; }
+  .q-list li {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 56px 1fr 200px;
+    gap: 22px;
+    align-items: center;
+  }
+  .q-list .num {
+    font-family: var(--font-display); font-style: italic;
+    color: var(--ink-faint); font-size: 24px;
+    line-height: 1; text-align: right;
+    padding-top: 4px;
+  }
+  .q-list .body .t {
+    font-family: var(--font-display);
+    font-size: 22px;
+    margin-bottom: 4px; line-height: 1.2;
+  }
+  .q-list .body .a {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 14px; color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .q-list .progress {
+    height: 1px; background: var(--rule-soft); position: relative;
+    margin-top: 8px;
+  }
+  .q-list .progress .bar {
+    position: absolute; left: 0; top: -1px;
+    height: 3px; background: var(--rust);
+    transition: width 300ms ease-out;
+  }
+  .q-list .progress.done .bar { background: var(--leaf); width: 100% !important; height: 1px; top: 0; }
+  .q-list .progress.err  .bar { background: var(--rust-deep); width: 100% !important; }
+  .q-list .progress.idle .bar { width: 0; }
+  .q-list .state-line {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .q-list .state-line .pct { color: var(--rust); }
+  .q-list .state-line.done .pct { color: var(--leaf); }
+  .q-list .state-line.done .pct::before { content: "✓ "; font-family: var(--font-display); font-style: italic; }
+  .q-list .state-line.err .pct  { color: var(--rust-deep); }
+  .q-list .action {
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+  }
+
+  /* ── Settings ────────────────────────────────────────────────────────── */
+  .settings-section { margin-bottom: 64px; }
+  .settings-section h3 {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 26px;
+    margin: 0 0 8px;
+    font-weight: 400;
+  }
+  .settings-section .desc {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 15px; color: var(--ink-soft);
+    margin-bottom: 28px; max-width: 520px;
+  }
+
+  .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 22px; }
+  .form-row label {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .form-row input, .form-row select {
+    font-family: var(--font-mono); font-size: 13px;
+    padding: 10px 0;
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink);
+    outline: 0;
+    transition: border-color 200ms;
+  }
+  .form-row input:focus, .form-row select:focus { border-color: var(--rust); }
+  .form-row .hint {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 13px; color: var(--ink-soft);
+  }
+  .form-row .hint a { color: var(--rust); text-decoration: none; border-bottom: 1px solid currentColor; }
+  .form-actions {
+    display: flex; gap: 24px; margin-top: 16px;
+    align-items: baseline;
+  }
+  .check-ok {
+    font-family: var(--font-display); font-style: italic; font-size: 14px;
+    color: var(--leaf);
+  }
+  .check-ok::before { content: "✓ "; }
+
+  /* ── Demo tabs ───────────────────────────────────────────────────────── */
+  .demo-tabs {
+    position: fixed; top: 18px; right: 18px;
+    display: flex; gap: 0;
+    z-index: 100;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+  }
+  .demo-tabs button {
+    background: transparent; border: 0;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 10px 16px;
+    cursor: pointer;
+    border-right: 1px solid var(--rule);
+  }
+  .demo-tabs button:last-child { border-right: 0; }
+  .demo-tabs button.on { background: var(--ink); color: var(--paper); }
+
+  .view { display: none; }
+  .view.on  { display: block; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: auto; top: auto;
+      flex-direction: row; padding: 12px 18px;
+      border-top: 1px solid var(--rule);
+      background: var(--paper);
+      justify-content: space-around;
+    }
+    .brand, .sidebar-foot { display: none; }
+    .nav { flex-direction: row; gap: 28px; width: 100%; justify-content: center; }
+    .nav a { font-size: 14px; }
+    .main { padding: 40px 24px 140px; }
+    h1.display { font-size: 44px; }
+    .pl-header { grid-template-columns: 1fr; }
+    .pl-meta h2 { font-size: 36px; }
+    .hero-examples { grid-template-columns: 1fr; }
+    .hero-examples > div { border-right: 0; border-bottom: 1px solid var(--rule-soft); padding: 18px 0; }
+    .track-list li { grid-template-columns: 20px 24px 1fr auto; }
+    .track-list .album, .track-list .lang { display: none; }
+    .pl-sticky { flex-wrap: wrap; gap: 14px; }
+    .q-list li { grid-template-columns: 1fr; }
+    .q-list .num { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-tabs">
+  <button class="on" data-view="hero">Hero</button>
+  <button data-view="playlist">Playlist</button>
+  <button data-view="queue">Cola</button>
+  <button data-view="settings">Ajustes</button>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="brand">
+      Spotify <em class="amp">·</em> Sing
+      <small>Un cuaderno de música</small>
+    </div>
+    <nav class="nav">
+      <a class="active" data-go="hero"><span class="num">01</span> Inicio</a>
+      <a data-go="queue"><span class="num">02</span> Cola <span class="count">(3)</span></a>
+      <a data-go="settings"><span class="num">03</span> Ajustes</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="ornament">∽</div>
+      <div>Local · sin cuenta</div>
+      <div>V0.4 — 2026</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- HERO -->
+    <section class="view on" id="view-hero">
+      <div class="crumb">Inicio <span class="sep">/</span> Importar</div>
+      <h1 class="display">Pega un link.<br>Conserva la <em>canción</em>.</h1>
+      <p class="lead">Sin login, sin teléfono, sin nube. Pasa una URL de Spotify — track, álbum, playlist — y guarda el archivo como si fuera un disco que vas a poner en el estante.</p>
+
+      <form onsubmit="event.preventDefault();">
+        <input class="hero-input" placeholder="https://open.spotify.com/playlist/..." value="https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M" />
+        <div class="hero-actions">
+          <span class="hero-detected">Playlist detectada · 50 tracks</span>
+          <button class="btn">Importar &nbsp;→</button>
+        </div>
+      </form>
+
+      <div class="hairline"></div>
+
+      <div class="hero-examples">
+        <div>
+          <div class="num">01</div>
+          <div class="label">Una canción</div>
+          <div class="ex">open.spotify.com<br>/track/3n3Ppam7…</div>
+        </div>
+        <div>
+          <div class="num">02</div>
+          <div class="label">Un álbum</div>
+          <div class="ex">open.spotify.com<br>/album/4aawyAB9…</div>
+        </div>
+        <div>
+          <div class="num">03</div>
+          <div class="label">Una playlist</div>
+          <div class="ex">open.spotify.com<br>/playlist/37i9dQ…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAYLIST -->
+    <section class="view" id="view-playlist">
+      <div class="crumb">Inicio <span class="sep">/</span> Playlist <span class="sep">/</span> Today's Top Hits</div>
+
+      <div class="pl-header">
+        <div class="pl-cover"></div>
+        <div class="pl-meta">
+          <div class="kicker">Spotify Editorial</div>
+          <h2>Today's<br>Top Hits</h2>
+          <div class="pl-stats">
+            cincuenta canciones <span class="dot">·</span> tres horas, doce minutos <span class="dot">·</span> <em>actualizada hoy</em>
+          </div>
+        </div>
+      </div>
+
+      <div class="pl-toolbar">
+        <input placeholder="Buscar un título, un artista…" />
+        <div class="pl-filters">
+          <span class="on">Todos</span>
+          <span>EN</span>
+          <span>ES</span>
+          <span>JP/CN</span>
+          <span>KR</span>
+        </div>
+      </div>
+
+      <ul class="track-list">
+        <li>
+          <div class="idx">i.</div>
+          <div class="ck"><input type="checkbox" checked /></div>
+          <div class="title">Espresso<span class="a">Sabrina Carpenter</span></div>
+          <div class="album">Short n' Sweet</div>
+          <div class="lang">EN</div>
+          <div class="dur">2:55</div>
+        </li>
+        <li>
+          <div class="idx">ii.</div>
+          <div class="ck"><input type="checkbox" checked /></div>
+          <div class="title">Birds of a Feather<span class="a">Billie Eilish</span></div>
+          <div class="album">Hit Me Hard And Soft</div>
+          <div class="lang">EN</div>
+          <div class="dur">3:30</div>
+        </li>
+        <li>
+          <div class="idx">iii.</div>
+          <div class="ck"><input type="checkbox" /></div>
+          <div class="title">夜に駆ける<span class="a">YOASOBI</span></div>
+          <div class="album">THE BOOK</div>
+          <div class="lang">JP</div>
+          <div class="dur">4:21</div>
+        </li>
+        <li>
+          <div class="idx">iv.</div>
+          <div class="ck"><input type="checkbox" checked /></div>
+          <div class="title">DtMF<span class="a">Bad Bunny</span></div>
+          <div class="album">DeBÍ TiRAR MáS FOToS</div>
+          <div class="lang">ES</div>
+          <div class="dur">3:58</div>
+        </li>
+        <li>
+          <div class="idx">v.</div>
+          <div class="ck"><input type="checkbox" /></div>
+          <div class="title">FORTNIGHT<span class="a">Taylor Swift, Post Malone</span></div>
+          <div class="album">The Tortured Poets Dept.</div>
+          <div class="lang">EN</div>
+          <div class="dur">3:48</div>
+        </li>
+        <li>
+          <div class="idx">vi.</div>
+          <div class="ck"><input type="checkbox" /></div>
+          <div class="title">APT.<span class="a">ROSÉ, Bruno Mars</span></div>
+          <div class="album">rosie</div>
+          <div class="lang">KR</div>
+          <div class="dur">2:49</div>
+        </li>
+      </ul>
+
+      <div class="pl-sticky">
+        <div class="count"><em>tres</em> canciones seleccionadas <span style="opacity:0.5">de cincuenta</span></div>
+        <div class="field"><label>Formato</label><select><option>mp3</option><option>m4a</option><option>opus</option></select></div>
+        <div class="field"><label>Calidad</label><select><option>320</option><option>192</option><option>128</option></select></div>
+        <button class="btn-rust btn">Agregar a la cola</button>
+      </div>
+    </section>
+
+    <!-- QUEUE -->
+    <section class="view" id="view-queue">
+      <div class="crumb">Inicio <span class="sep">/</span> La Cola</div>
+      <h1 class="display" style="font-size:54px;">La cola.</h1>
+      <p class="q-meta">Ocho canciones en proceso. <em>Tres listas</em> esperando ser guardadas, dos descargando, tres pendientes.</p>
+
+      <div class="q-actions">
+        <button class="btn sm">Limpiar las completadas</button>
+        <button class="btn sm" style="color:var(--rust);border-bottom-color:var(--rust);">Descargar todas las listas (3)</button>
+      </div>
+
+      <ul class="q-list">
+        <li>
+          <div class="num">i.</div>
+          <div class="body">
+            <div class="t">Espresso</div>
+            <div class="a">Sabrina Carpenter · mp3 320</div>
+            <div class="state-line done"><span>completado</span><span class="pct">listo</span></div>
+            <div class="progress done"><div class="bar"></div></div>
+          </div>
+          <div class="action">
+            <button class="btn sm" style="color:var(--rust);border-bottom-color:var(--rust);">⬇ Guardar</button>
+          </div>
+        </li>
+        <li>
+          <div class="num">ii.</div>
+          <div class="body">
+            <div class="t">Birds of a Feather</div>
+            <div class="a">Billie Eilish · mp3 320</div>
+            <div class="state-line"><span>descargando audio</span><span class="pct">68 %</span></div>
+            <div class="progress"><div class="bar" style="width:68%;"></div></div>
+          </div>
+          <div class="action">
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--ink-faint);letter-spacing:0.12em;">2.4 MB/s</span>
+          </div>
+        </li>
+        <li>
+          <div class="num">iii.</div>
+          <div class="body">
+            <div class="t">DtMF</div>
+            <div class="a">Bad Bunny · mp3 320</div>
+            <div class="state-line"><span>buscando en YouTube</span><span class="pct">24 %</span></div>
+            <div class="progress"><div class="bar" style="width:24%;"></div></div>
+          </div>
+          <div class="action"></div>
+        </li>
+        <li>
+          <div class="num">iv.</div>
+          <div class="body">
+            <div class="t">FORTNIGHT</div>
+            <div class="a">Taylor Swift, Post Malone · mp3 320</div>
+            <div class="state-line err"><span>error · video restringido</span><span class="pct">no se pudo</span></div>
+            <div class="progress err"><div class="bar"></div></div>
+          </div>
+          <div class="action">
+            <button class="btn sm">Reintentar</button>
+          </div>
+        </li>
+        <li>
+          <div class="num">v.</div>
+          <div class="body">
+            <div class="t">APT.</div>
+            <div class="a">ROSÉ, Bruno Mars · mp3 320</div>
+            <div class="state-line"><span>en espera</span><span class="pct" style="color:var(--ink-faint);">pendiente</span></div>
+            <div class="progress idle"><div class="bar"></div></div>
+          </div>
+          <div class="action"></div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="crumb">Inicio <span class="sep">/</span> Ajustes</div>
+      <h1 class="display" style="font-size:54px;">Ajustes.</h1>
+
+      <div class="hairline"></div>
+
+      <div class="settings-section">
+        <h3>Credenciales de Spotify</h3>
+        <p class="desc">La aplicación habla con la API de Spotify usando las llaves que le des. Se guardan únicamente en este servidor — nunca salen a terceros.</p>
+
+        <div class="form-row">
+          <label>Client ID</label>
+          <input value="d3f9c2a1b4e8a7f0c1d2e3f4a5b6c7d8" />
+        </div>
+        <div class="form-row">
+          <label>Client Secret</label>
+          <input type="password" value="••••••••••••••••••••••••••••••••" />
+          <div class="hint">Para obtener una, crea una app gratuita en <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com</a>.</div>
+        </div>
+        <div class="form-actions">
+          <button class="btn sm" style="color:var(--rust);border-bottom-color:var(--rust);">Verificar credenciales</button>
+          <span class="check-ok">conexión correcta</span>
+        </div>
+      </div>
+
+      <div class="hairline-thin hairline"></div>
+
+      <div class="settings-section">
+        <h3>Formato preferido</h3>
+        <p class="desc">Se aplicará a cada nueva canción que agregues. Siempre puedes cambiarlo en la barra inferior de la playlist.</p>
+
+        <div class="form-row">
+          <label>Formato</label>
+          <select>
+            <option>mp3 — para que se escuche en cualquier lado</option>
+            <option>m4a — un poco más limpio, casi todos los reproductores</option>
+            <option>opus — pequeñísimo, reproductores modernos</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Calidad (kbps)</label>
+          <select>
+            <option>320 — fidelidad máxima</option>
+            <option>192 — equilibrio</option>
+            <option>128 — para ahorrar espacio</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const views = document.querySelectorAll('.view');
+  const tabs  = document.querySelectorAll('.demo-tabs button');
+  const navs  = document.querySelectorAll('.nav a');
+
+  function go(id) {
+    views.forEach(v => v.classList.toggle('on', v.id === 'view-' + id));
+    tabs.forEach(t => t.classList.toggle('on', t.dataset.view === id));
+    const navTarget = id === 'playlist' ? 'hero' : id;
+    navs.forEach(n => n.classList.toggle('active', n.dataset.go === navTarget));
+    window.scrollTo(0, 0);
+  }
+  tabs.forEach(t => t.addEventListener('click', () => go(t.dataset.view)));
+  navs.forEach(n => n.addEventListener('click', e => { e.preventDefault(); go(n.dataset.go); }));
+</script>
+</body>
+</html>

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spotify Sing — Cobalt Heir (Direction A)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:       #0E0E10;
+    --ink-soft:  #2A2A2E;
+    --paper:    #FAFAF7;
+    --paper-2:  #F1F1EC;
+    --rule:      #1E1E22;
+    --rule-soft: #D9D9D2;
+    --accent:    #FF5C28;
+    --accent-2:  #E04B1A;
+    --ok:        #2D7A3D;
+    --warn:      #B45309;
+    --err:       #B42323;
+
+    --font-display: 'Inter', system-ui, sans-serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'IBM Plex Mono', ui-monospace, monospace;
+
+    --radius:  4px;
+    --gap:     24px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── App shell ───────────────────────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+  .sidebar {
+    border-right: 1px solid var(--rule-soft);
+    padding: 24px 20px;
+    position: sticky; top: 0;
+    height: 100vh;
+    background: var(--paper);
+    display: flex; flex-direction: column;
+  }
+  .brand {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-bottom: 36px;
+  }
+  .brand .dot { color: var(--accent); }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a {
+    display: flex; align-items: center; justify-content: space-between;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    transition: background 120ms ease-out, border-color 120ms ease-out;
+    cursor: pointer;
+  }
+  .nav a:hover { background: var(--paper-2); }
+  .nav a.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .nav a .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    border-radius: 99px;
+    opacity: 0.85;
+  }
+  .sidebar-foot {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 0.08em;
+    line-height: 1.6;
+  }
+  .sidebar-foot .status::before {
+    content: ""; display: inline-block; width: 8px; height: 8px;
+    background: var(--ok); border-radius: 99px; margin-right: 6px; vertical-align: 1px;
+  }
+
+  /* ── Main ────────────────────────────────────────────────────────────── */
+  .main { padding: 32px 48px 80px; max-width: 1280px; }
+
+  .crumb {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 24px;
+  }
+  .crumb .sep { padding: 0 8px; opacity: 0.4; }
+
+  h1.display {
+    font-size: 56px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0 0 12px;
+  }
+  h1.display .accent { color: var(--accent); }
+  p.lead {
+    font-size: 16px;
+    color: var(--ink-soft);
+    max-width: 640px;
+    margin: 0 0 40px;
+  }
+
+  /* ── Hero / Import ───────────────────────────────────────────────────── */
+  .hero-input-wrap {
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 4px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: stretch;
+  }
+  .hero-input {
+    border: 0; outline: 0;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 16px;
+    color: var(--ink);
+    padding: 18px 20px;
+    width: 100%;
+  }
+  .hero-input::placeholder { color: var(--ink-soft); opacity: 0.5; }
+  .btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: 0;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0 28px;
+    cursor: pointer;
+    transition: background 120ms ease-out;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn.btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+  }
+  .btn.btn-ghost:hover { background: var(--paper-2); }
+  .btn.btn-accent { background: var(--accent); }
+  .btn.btn-accent:hover { background: var(--accent-2); }
+  .btn.sm { padding: 8px 14px; font-size: 11px; }
+  .btn[disabled] { opacity: 0.4; cursor: not-allowed; background: var(--ink); }
+
+  .hero-meta {
+    display: flex; gap: 24px;
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .hero-meta .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px;
+    border: 1px solid var(--rule-soft);
+    text-transform: uppercase;
+  }
+  .hero-meta .pill .ico {
+    width: 8px; height: 8px; background: var(--ink); display: inline-block;
+  }
+  .hero-meta .pill.playlist .ico { background: var(--accent); border-radius: 0; }
+  .hero-meta .pill.track    .ico { background: var(--ok); border-radius: 99px; }
+  .hero-meta .pill.album    .ico { background: var(--warn); border-radius: 1px; transform: rotate(45deg); }
+
+  .hero-examples {
+    margin-top: 60px;
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 28px;
+  }
+  .hero-examples h3 {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-soft); margin: 0 0 14px;
+  }
+  .hero-examples ul {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .hero-examples li {
+    border: 1px solid var(--rule-soft);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms;
+  }
+  .hero-examples li:hover { border-color: var(--ink); background: var(--paper-2); }
+  .hero-examples li .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft); display: block; margin-bottom: 6px;
+  }
+  .hero-examples li .url {
+    font-family: var(--font-mono); font-size: 12px;
+    word-break: break-all; color: var(--ink);
+  }
+
+  /* ── Playlist view ───────────────────────────────────────────────────── */
+  .pl-header {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 32px;
+    align-items: flex-end;
+    margin-bottom: 32px;
+  }
+  .pl-cover {
+    width: 200px; height: 200px;
+    background:
+      linear-gradient(135deg, #FF5C28 0%, #E04B1A 50%, #1E1E22 100%);
+    border: 1px solid var(--rule);
+    position: relative;
+  }
+  .pl-cover::after {
+    content: "PLAYLIST · COVER";
+    position: absolute; left: 8px; bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 9px; letter-spacing: 0.18em;
+    color: rgba(255,255,255,0.7);
+  }
+  .pl-meta .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 12px;
+  }
+  .pl-meta h2 {
+    font-size: 42px; line-height: 1.05; letter-spacing: -0.02em;
+    margin: 0 0 14px; font-weight: 700;
+  }
+  .pl-stats {
+    display: flex; gap: 18px;
+    font-family: var(--font-mono);
+    font-size: 12px; color: var(--ink-soft);
+  }
+  .pl-stats span strong { color: var(--ink); font-weight: 600; }
+
+  .pl-toolbar {
+    display: flex; gap: 8px; align-items: center;
+    padding: 12px 0;
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    margin-bottom: 0;
+  }
+  .pl-toolbar .search {
+    flex: 1;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--rule-soft);
+  }
+  .pl-toolbar .search input {
+    border: 0; outline: 0; background: transparent;
+    font-family: var(--font-mono); font-size: 12px; flex: 1;
+    color: var(--ink);
+  }
+  .pl-toolbar .filter {
+    font-family: var(--font-mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 8px 12px;
+    border: 1px solid var(--rule-soft); cursor: pointer;
+  }
+  .pl-toolbar .filter:hover { background: var(--paper-2); }
+  .pl-toolbar .filter.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  table.tracks {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.tracks th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+    font-weight: 500;
+  }
+  table.tracks td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: middle;
+  }
+  table.tracks tr:hover td { background: var(--paper-2); }
+  table.tracks .idx { font-family: var(--font-mono); color: var(--ink-soft); width: 28px; }
+  table.tracks .ck { width: 24px; }
+  table.tracks .ck input {
+    appearance: none; -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border: 1px solid var(--ink); background: transparent;
+    cursor: pointer; margin: 0;
+    position: relative;
+  }
+  table.tracks .ck input:checked { background: var(--ink); }
+  table.tracks .ck input:checked::after {
+    content: ""; position: absolute;
+    top: 2px; left: 4px;
+    width: 4px; height: 7px;
+    border-right: 1.5px solid var(--paper);
+    border-bottom: 1.5px solid var(--paper);
+    transform: rotate(45deg);
+  }
+  table.tracks .cover {
+    width: 40px; height: 40px;
+    background: var(--rule-soft);
+    background-size: cover;
+    flex-shrink: 0;
+  }
+  table.tracks .title-cell {
+    display: flex; gap: 12px; align-items: center;
+  }
+  table.tracks .title-cell .tx .t { font-weight: 600; }
+  table.tracks .title-cell .tx .a { color: var(--ink-soft); font-size: 12px; }
+  table.tracks .dur { font-family: var(--font-mono); color: var(--ink-soft); width: 60px; text-align: right; }
+  table.tracks .lang {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    border: 1px solid var(--rule-soft);
+    padding: 2px 6px;
+    color: var(--ink-soft);
+  }
+
+  /* ── Sticky bottom bar ──────────────────────────────────────────────── */
+  .pl-sticky {
+    position: sticky; bottom: 0;
+    background: var(--ink); color: var(--paper);
+    margin: 0 -48px;
+    padding: 14px 48px;
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto;
+    gap: 18px;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .pl-sticky .count strong { font-weight: 600; }
+  .pl-sticky .field {
+    display: inline-flex; gap: 8px; align-items: center;
+    border: 1px solid rgba(250,250,247,0.25);
+    padding: 6px 10px;
+  }
+  .pl-sticky .field label { color: rgba(250,250,247,0.6); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+  .pl-sticky .field select {
+    appearance: none; background: transparent; border: 0; color: var(--paper);
+    font-family: var(--font-mono); font-size: 12px; outline: 0; cursor: pointer;
+  }
+
+  /* ── Queue ───────────────────────────────────────────────────────────── */
+  .queue-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .queue-toolbar .left { font-family: var(--font-mono); font-size: 12px; }
+  .queue-toolbar .left strong { color: var(--accent); }
+  .queue-toolbar .right { display: flex; gap: 8px; }
+
+  .queue-list { display: flex; flex-direction: column; gap: 0; }
+  .q-card {
+    display: grid;
+    grid-template-columns: 48px 1fr 160px 100px 100px;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: center;
+  }
+  .q-card .cv {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #2A2A2E, #0E0E10);
+  }
+  .q-card .tx .t { font-weight: 600; font-size: 14px; }
+  .q-card .tx .a { font-size: 12px; color: var(--ink-soft); }
+  .q-card .prog {
+    height: 4px; background: var(--rule-soft); position: relative;
+  }
+  .q-card .prog .bar { position: absolute; left: 0; top: 0; height: 100%; background: var(--ink); }
+  .q-card .prog.run .bar { background: var(--accent); }
+  .q-card .prog.done .bar { background: var(--ok); width: 100% !important; }
+  .q-card .prog.err  .bar { background: var(--err); width: 100% !important; }
+  .q-card .state {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .q-card .state.run  { color: var(--accent); }
+  .q-card .state.done { color: var(--ok); }
+  .q-card .state.err  { color: var(--err); }
+  .q-card .action { text-align: right; }
+
+  /* ── Settings ────────────────────────────────────────────────────────── */
+  .settings-grid {
+    display: grid; grid-template-columns: 240px 1fr; gap: 48px;
+  }
+  .settings-side h4 {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 8px;
+  }
+  .settings-side p { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+
+  .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 22px; }
+  .form-row label {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .form-row input, .form-row select {
+    font-family: var(--font-mono); font-size: 13px;
+    padding: 10px 14px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink);
+    outline: 0;
+  }
+  .form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+  .form-row .hint {
+    font-size: 11px; color: var(--ink-soft);
+  }
+  .form-row .hint a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent); }
+  .form-actions { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
+  .form-actions .check-ok {
+    font-family: var(--font-mono); font-size: 11px; color: var(--ok);
+  }
+
+  /* ── Tabs (demo navigator) ──────────────────────────────────────────── */
+  .demo-tabs {
+    position: fixed; top: 12px; right: 12px;
+    display: flex; gap: 4px;
+    background: var(--ink); color: var(--paper);
+    padding: 4px;
+    z-index: 100;
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .demo-tabs button {
+    background: transparent; border: 0; color: var(--paper);
+    padding: 6px 12px; cursor: pointer;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .demo-tabs button.on { background: var(--accent); color: var(--ink); }
+
+  .view { display: none; }
+  .view.on  { display: block; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: auto; border-right: 0; border-top: 1px solid var(--rule-soft);
+      flex-direction: row; padding: 8px 12px;
+      justify-content: space-around;
+    }
+    .brand, .sidebar-foot { display: none; }
+    .nav { flex-direction: row; gap: 4px; width: 100%; justify-content: space-around; }
+    .nav a { padding: 8px 10px; font-size: 11px; }
+    .main { padding: 24px 20px 120px; }
+    h1.display { font-size: 38px; }
+    .pl-header { grid-template-columns: 1fr; }
+    .pl-sticky { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-tabs">
+  <button class="on" data-view="hero">Hero</button>
+  <button data-view="playlist">Playlist</button>
+  <button data-view="queue">Queue</button>
+  <button data-view="settings">Settings</button>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="brand">SPOTIFY<span class="dot">·</span>SING</div>
+    <nav class="nav">
+      <a class="active" data-go="hero">Inicio</a>
+      <a data-go="queue">Cola <span class="count">3</span></a>
+      <a data-go="settings">Configuración</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="status">API · OK</div>
+      <div>v0.4 · BUILD 2412</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- HERO -->
+    <section class="view on" id="view-hero">
+      <div class="crumb">Inicio <span class="sep">/</span> Importar</div>
+      <h1 class="display">Pega un link.<br><span class="accent">Recibe el archivo.</span></h1>
+      <p class="lead">Pasa una URL de Spotify — track, álbum o playlist. Sin login, sin ADB, sin teléfono. El archivo se descarga directamente a tu dispositivo.</p>
+
+      <form class="hero-input-wrap" onsubmit="event.preventDefault();">
+        <input class="hero-input" placeholder="https://open.spotify.com/playlist/..." value="https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M" />
+        <button class="btn">Importar</button>
+      </form>
+
+      <div class="hero-meta">
+        <span class="pill playlist"><span class="ico"></span>Playlist detectada</span>
+        <span class="pill">37i9dQZF1DXcBWIGoYBM5M</span>
+        <span class="pill">50 tracks · est. 3h 12m</span>
+      </div>
+
+      <div class="hero-examples">
+        <h3>Ejemplos de URLs aceptadas</h3>
+        <ul>
+          <li><span class="lbl">Track</span><span class="url">open.spotify.com/track/...</span></li>
+          <li><span class="lbl">Álbum</span><span class="url">open.spotify.com/album/...</span></li>
+          <li><span class="lbl">Playlist</span><span class="url">open.spotify.com/playlist/...</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- PLAYLIST -->
+    <section class="view" id="view-playlist">
+      <div class="crumb">Inicio <span class="sep">/</span> Playlist <span class="sep">/</span> Today's Top Hits</div>
+
+      <div class="pl-header">
+        <div class="pl-cover"></div>
+        <div class="pl-meta">
+          <div class="kicker">Spotify · Playlist editorial</div>
+          <h2>Today's Top Hits</h2>
+          <div class="pl-stats">
+            <span><strong>50</strong> tracks</span>
+            <span><strong>3h 12m</strong></span>
+            <span>Actualizada hoy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pl-toolbar">
+        <div class="search">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);">⌕</span>
+          <input placeholder="Buscar título o artista" />
+        </div>
+        <button class="filter active">Todos</button>
+        <button class="filter">EN</button>
+        <button class="filter">ES</button>
+        <button class="filter">JP/CN</button>
+        <button class="filter">KR</button>
+      </div>
+
+      <table class="tracks">
+        <thead>
+          <tr>
+            <th class="ck"><input type="checkbox" /></th>
+            <th class="idx">#</th>
+            <th>Título</th>
+            <th>Álbum</th>
+            <th>Idioma</th>
+            <th class="dur">Dur</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ck"><input type="checkbox" checked /></td>
+            <td class="idx">01</td>
+            <td><div class="title-cell"><div class="cover" style="background:linear-gradient(135deg,#FF5C28,#0E0E10);"></div><div class="tx"><div class="t">Espresso</div><div class="a">Sabrina Carpenter</div></div></div></td>
+            <td>Short n' Sweet</td>
+            <td><span class="lang">EN</span></td>
+            <td class="dur">2:55</td>
+          </tr>
+          <tr>
+            <td class="ck"><input type="checkbox" checked /></td>
+            <td class="idx">02</td>
+            <td><div class="title-cell"><div class="cover" style="background:linear-gradient(135deg,#2D7A3D,#1E1E22);"></div><div class="tx"><div class="t">Birds of a Feather</div><div class="a">Billie Eilish</div></div></div></td>
+            <td>Hit Me Hard And Soft</td>
+            <td><span class="lang">EN</span></td>
+            <td class="dur">3:30</td>
+          </tr>
+          <tr>
+            <td class="ck"><input type="checkbox" /></td>
+            <td class="idx">03</td>
+            <td><div class="title-cell"><div class="cover" style="background:linear-gradient(135deg,#B45309,#0E0E10);"></div><div class="tx"><div class="t">夜に駆ける</div><div class="a">YOASOBI</div></div></div></td>
+            <td>THE BOOK</td>
+            <td><span class="lang">JP</span></td>
+            <td class="dur">4:21</td>
+          </tr>
+          <tr>
+            <td class="ck"><input type="checkbox" checked /></td>
+            <td class="idx">04</td>
+            <td><div class="title-cell"><div class="cover" style="background:linear-gradient(135deg,#5B4DFF,#0E0E10);"></div><div class="tx"><div class="t">Bad Bunny — DtMF</div><div class="a">Bad Bunny</div></div></div></td>
+            <td>DeBÍ TiRAR MáS FOToS</td>
+            <td><span class="lang">ES</span></td>
+            <td class="dur">3:58</td>
+          </tr>
+          <tr>
+            <td class="ck"><input type="checkbox" /></td>
+            <td class="idx">05</td>
+            <td><div class="title-cell"><div class="cover" style="background:linear-gradient(135deg,#B42323,#0E0E10);"></div><div class="tx"><div class="t">FORTNIGHT</div><div class="a">Taylor Swift, Post Malone</div></div></div></td>
+            <td>The Tortured Poets Dept.</td>
+            <td><span class="lang">EN</span></td>
+            <td class="dur">3:48</td>
+          </tr>
+          <tr>
+            <td class="ck"><input type="checkbox" /></td>
+            <td class="idx">06</td>
+            <td><div class="title-cell"><div class="cover" style="background:linear-gradient(135deg,#2A2A2E,#0E0E10);"></div><div class="tx"><div class="t">APT.</div><div class="a">ROSÉ, Bruno Mars</div></div></div></td>
+            <td>rosie</td>
+            <td><span class="lang">KR</span></td>
+            <td class="dur">2:49</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="pl-sticky">
+        <div class="count"><strong>3</strong> tracks seleccionados · <span style="opacity:0.6">de 50</span></div>
+        <div class="field"><label>Formato</label><select><option>mp3</option><option>m4a</option><option>opus</option></select></div>
+        <div class="field"><label>Calidad</label><select><option>320 kbps</option><option>192 kbps</option><option>128 kbps</option></select></div>
+        <button class="btn btn-ghost sm" style="color:var(--paper);border-color:rgba(250,250,247,0.25);">Limpiar</button>
+        <button class="btn btn-accent">Agregar a cola →</button>
+      </div>
+    </section>
+
+    <!-- QUEUE -->
+    <section class="view" id="view-queue">
+      <div class="crumb">Inicio <span class="sep">/</span> Cola de descarga</div>
+      <h1 class="display" style="font-size:36px;margin-bottom:24px;">Cola</h1>
+
+      <div class="queue-toolbar">
+        <div class="left">8 items · <strong>3 listos</strong> · 2 en curso · 3 pendientes</div>
+        <div class="right">
+          <button class="btn btn-ghost sm">Limpiar completados</button>
+          <button class="btn btn-accent sm">⬇ Descargar todos listos (3)</button>
+        </div>
+      </div>
+
+      <div class="queue-list">
+        <div class="q-card">
+          <div class="cv" style="background:linear-gradient(135deg,#FF5C28,#0E0E10);"></div>
+          <div class="tx"><div class="t">Espresso</div><div class="a">Sabrina Carpenter · mp3 · 320</div></div>
+          <div class="prog done"><div class="bar"></div></div>
+          <div class="state done">Listo</div>
+          <div class="action"><button class="btn btn-accent sm">⬇ Descargar</button></div>
+        </div>
+        <div class="q-card">
+          <div class="cv" style="background:linear-gradient(135deg,#2D7A3D,#0E0E10);"></div>
+          <div class="tx"><div class="t">Birds of a Feather</div><div class="a">Billie Eilish · mp3 · 320</div></div>
+          <div class="prog run"><div class="bar" style="width:68%;"></div></div>
+          <div class="state run">Descargando · 68%</div>
+          <div class="action"><span style="font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);">2.4 MB/s</span></div>
+        </div>
+        <div class="q-card">
+          <div class="cv" style="background:linear-gradient(135deg,#5B4DFF,#0E0E10);"></div>
+          <div class="tx"><div class="t">DtMF</div><div class="a">Bad Bunny · mp3 · 320</div></div>
+          <div class="prog run"><div class="bar" style="width:24%;"></div></div>
+          <div class="state run">Buscando YT · 24%</div>
+          <div class="action"></div>
+        </div>
+        <div class="q-card">
+          <div class="cv" style="background:linear-gradient(135deg,#B42323,#0E0E10);"></div>
+          <div class="tx"><div class="t">FORTNIGHT</div><div class="a">Taylor Swift, Post Malone · mp3 · 320</div></div>
+          <div class="prog err"><div class="bar"></div></div>
+          <div class="state err">Error · video restringido</div>
+          <div class="action"><button class="btn btn-ghost sm">Reintentar</button></div>
+        </div>
+        <div class="q-card">
+          <div class="cv" style="background:linear-gradient(135deg,#2A2A2E,#0E0E10);"></div>
+          <div class="tx"><div class="t">APT.</div><div class="a">ROSÉ, Bruno Mars · mp3 · 320</div></div>
+          <div class="prog"><div class="bar" style="width:0%;"></div></div>
+          <div class="state">Pendiente</div>
+          <div class="action"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="crumb">Inicio <span class="sep">/</span> Configuración</div>
+      <h1 class="display" style="font-size:36px;margin-bottom:32px;">Configuración</h1>
+
+      <div class="settings-grid">
+        <aside class="settings-side">
+          <h4>Spotify API</h4>
+          <p>Necesitas credenciales de una Spotify App. Se almacenan en variables de entorno del servidor — no se envían a terceros.</p>
+        </aside>
+        <div>
+          <div class="form-row">
+            <label>Spotify Client ID</label>
+            <input value="d3f9c2a1b4e8..." />
+          </div>
+          <div class="form-row">
+            <label>Spotify Client Secret</label>
+            <input type="password" value="••••••••••••••••••••••••" />
+            <div class="hint">Crea una app gratis en <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-accent sm">Verificar credenciales</button>
+            <span class="check-ok">✓ Conectado · usuario API OK</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-grid" style="margin-top:48px;">
+        <aside class="settings-side">
+          <h4>Descarga por defecto</h4>
+          <p>Aplica a nuevos items agregados a la cola. Cada item se puede sobreescribir individualmente.</p>
+        </aside>
+        <div>
+          <div class="form-row">
+            <label>Formato</label>
+            <select><option>mp3 — máxima compatibilidad</option><option>m4a — mejor calidad/tamaño</option><option>opus — ultra eficiente</option></select>
+          </div>
+          <div class="form-row">
+            <label>Calidad (bitrate)</label>
+            <select><option>320 kbps</option><option>192 kbps</option><option>128 kbps</option></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Tab + sidebar nav
+  const views = document.querySelectorAll('.view');
+  const tabs  = document.querySelectorAll('.demo-tabs button');
+  const navs  = document.querySelectorAll('.nav a');
+
+  function go(id) {
+    views.forEach(v => v.classList.toggle('on', v.id === 'view-' + id));
+    tabs.forEach(t => t.classList.toggle('on', t.dataset.view === id));
+    const navTarget = id === 'playlist' ? 'hero' : id;
+    navs.forEach(n => n.classList.toggle('active', n.dataset.go === navTarget));
+    window.scrollTo(0, 0);
+  }
+  tabs.forEach(t => t.addEventListener('click', () => go(t.dataset.view)));
+  navs.forEach(n => n.addEventListener('click', e => { e.preventDefault(); go(n.dataset.go); }));
+</script>
+</body>
+</html>
