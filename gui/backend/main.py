@@ -14,12 +14,17 @@ _ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).parent.parent.pa
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from gui.backend.routes import config, queue, scripts, spotify, youtube
+from gui.backend.routes import config, download, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    deps = download._check_dependencies()
+    if not deps.ready:
+        missing = [k for k, v in deps.model_dump().items() if v is False and k != "ready"]
+        print(f"[startup] WARNING: missing dependencies -> {', '.join(missing)}. "
+              f"/api/download/direct will return 503 until installed.", flush=True)
     # Skip browser launch when running inside Tauri (it manages the window itself).
     if not os.environ.get("SPOTIFY_SYNC_TAURI"):
         webbrowser.open("http://localhost:8000")
@@ -40,6 +45,7 @@ app.include_router(queue.router, prefix="/api")
 app.include_router(youtube.router, prefix="/api")
 app.include_router(scripts.router, prefix="/api")
 app.include_router(spotify.router, prefix="/api")
+app.include_router(download.router, prefix="/api")
 
 app.include_router(ws_router)
 

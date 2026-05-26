@@ -26,15 +26,15 @@
 
 ## Fase 1 — Eliminar código ADB / teléfono
 
-- [ ] Borrar `gui/backend/routes/adb.py` completo
-- [ ] En `queue.py`: eliminar `_adb_connected()`, `_push_to_phone()`, `PHONE_MUSIC_DIR`, lógica de push
-- [ ] En `queue.py`: el download siempre guarda en `DOWNLOAD_DIR` local
-- [ ] En `models.py`: eliminar campos relacionados a ADB/phone si existen
-- [ ] Frontend — eliminar `AdbConnectModal.tsx`
-- [ ] Frontend — eliminar indicador ADB del sidebar
-- [ ] Frontend — eliminar `CompareView` entera (comparar Spotify vs teléfono no aplica)
-- [ ] Frontend — eliminar botón "Download to Phone" / label dinámico PC/Android
-- [ ] Limpiar `main.py` del backend: quitar router ADB
+- [x] Borrar `gui/backend/routes/adb.py` completo
+- [x] En `queue.py`: eliminar `_adb_connected()`, `_push_to_phone()`, `PHONE_MUSIC_DIR`, lógica de push
+- [x] En `queue.py`: el download siempre guarda en `DOWNLOAD_DIR` local
+- [x] En `models.py`: eliminar campos relacionados a ADB/phone si existen
+- [x] Frontend — eliminar `AdbConnectModal.tsx`
+- [x] Frontend — eliminar indicador ADB del sidebar
+- [x] Frontend — eliminar `CompareView` entera (comparar Spotify vs teléfono no aplica)
+- [x] Frontend — eliminar botón "Download to Phone" / label dinámico PC/Android
+- [x] Limpiar `main.py` del backend: quitar router ADB
 
 ---
 
@@ -42,12 +42,12 @@
 
 El flujo cambia: el servidor descarga el archivo → el browser lo recibe automáticamente.
 
-- [ ] Nuevo endpoint `GET /api/queue/{item_id}/file` — sirve el archivo descargado como `FileResponse` con `Content-Disposition: attachment`
-- [ ] El frontend hace `window.location.href = /api/queue/{id}/file` tras descarga exitosa → browser descarga el archivo
-- [ ] Limpieza automática: borrar archivo del servidor X minutos después de servido (evitar llenado de disco)
-- [ ] Endpoint `POST /api/download/direct` — recibe URL de Spotify o playlist, retorna job_id inmediatamente, procesa en background
-- [ ] `GET /api/download/{job_id}/status` — polling de estado (o WebSocket ya existente)
-- [ ] Validar que `yt-dlp` y `ffmpeg` están disponibles en Docker antes de aceptar solicitudes
+- [x] Nuevo endpoint `GET /api/queue/{item_id}/file` — sirve el archivo descargado como `FileResponse` con `Content-Disposition: attachment`
+- [x] El frontend hace `window.location.href = /api/queue/{id}/file` tras descarga exitosa → browser descarga el archivo
+- [x] Limpieza automática: borrar archivo del servidor X minutos después de servido (evitar llenado de disco)
+- [x] Endpoint `POST /api/download/direct` — recibe URL de Spotify o playlist, retorna job_id inmediatamente, procesa en background
+- [x] `GET /api/download/{job_id}/status` — polling de estado (o WebSocket ya existente)
+- [x] Validar que `yt-dlp` y `ffmpeg` están disponibles en Docker antes de aceptar solicitudes (nota: proyecto usa `pytubefix` en lugar de `yt-dlp`; se valida `pytubefix` + `ffmpeg`)
 
 ---
 
