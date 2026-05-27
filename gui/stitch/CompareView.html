@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SyncFlow - CompareView</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-fixed": "#ffdad9",
+                        "void-black": "#0D0D0D",
+                        "hover-ash": "#222222",
+                        "inverse-surface": "#e5e2e1",
+                        "outline-variant": "#3d4a3d",
+                        "surface-container-lowest": "#0e0e0e",
+                        "en-blue": "#74B9FF",
+                        "silver-secondary": "#B3B3B3",
+                        "on-tertiary": "#680014",
+                        "kr-violet": "#A29BFE",
+                        "lifted-slate": "#1A1A1A",
+                        "charcoal-surface": "#111111",
+                        "on-surface": "#e5e2e1",
+                        "inverse-on-surface": "#313030",
+                        "primary-fixed-dim": "#53e076",
+                        "surface-container-low": "#1c1b1b",
+                        "primary-container": "#1db954",
+                        "inverse-primary": "#006e2d",
+                        "on-tertiary-fixed": "#410009",
+                        "hairline-gray": "#2A2A2A",
+                        "on-primary-container": "#004118",
+                        "surface-container-high": "#2a2a2a",
+                        "on-secondary": "#492900",
+                        "on-primary": "#003914",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#bccbb9",
+                        "secondary-fixed-dim": "#ffb86a",
+                        "es-yellow": "#FDCB6E",
+                        "surface-container": "#201f1f",
+                        "tertiary-fixed-dim": "#ffb3b3",
+                        "surface-tint": "#53e076",
+                        "on-primary-fixed-variant": "#005320",
+                        "pure-white": "#FFFFFF",
+                        "surface-container-highest": "#353534",
+                        "background": "#131313",
+                        "primary": "#53e076",
+                        "on-tertiary-fixed-variant": "#920020",
+                        "surface": "#131313",
+                        "outline": "#869585",
+                        "on-primary-fixed": "#002108",
+                        "cn-red": "#FF7675",
+                        "on-background": "#e5e2e1",
+                        "secondary-container": "#da8500",
+                        "tertiary-container": "#ff767b",
+                        "on-secondary-fixed-variant": "#683d00",
+                        "surface-bright": "#3a3939",
+                        "on-secondary-fixed": "#2c1700",
+                        "on-error-container": "#ffdad6",
+                        "fog-muted": "#666666",
+                        "surface-dim": "#131313",
+                        "terminal-bg": "#090909",
+                        "secondary-fixed": "#ffdcbc",
+                        "jp-pink": "#FF6B9D",
+                        "on-tertiary-container": "#760018",
+                        "tertiary": "#ffb3b3",
+                        "secondary": "#ffb86a",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "surface-variant": "#353534",
+                        "on-secondary-container": "#492900",
+                        "ru-teal": "#55EFC4",
+                        "primary-fixed": "#72fe8f"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.125rem",
+                        lg: "0.25rem",
+                        xl: "0.5rem",
+                        full: "0.75rem"
+                    },
+                    spacing: {
+                        xl: "24px",
+                        "sidebar-width": "60px",
+                        md: "12px",
+                        "row-height": "40px",
+                        base: "8px",
+                        tight: "4px",
+                        lg: "16px"
+                    },
+                    fontFamily: {
+                        "terminal-text": ["JetBrains Mono"],
+                        "body-secondary": ["Inter"],
+                        "section-heading": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "page-title": ["Inter"],
+                        "body-primary": ["Inter"]
+                    },
+                    fontSize: {
+                        "terminal-text": ["11.5px", { lineHeight: "1.75", fontWeight: "400" }],
+                        "body-secondary": ["11.5px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "section-heading": ["10px", { lineHeight: "1.5", letterSpacing: "0.08em", fontWeight: "700" }],
+                        "label-mono": ["11px", { lineHeight: "1.0", fontWeight: "600" }],
+                        "page-title": ["17px", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-primary": ["13px", { lineHeight: "1.5", fontWeight: "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-charcoal-surface text-on-surface h-screen overflow-hidden flex font-body-primary">
+<!-- SideNavBar (Shared Component JSON) -->
+<nav class="fixed left-0 top-0 h-full w-[60px] bg-void-black flex flex-col items-center py-lg justify-between border-r border-hairline-gray z-50">
+<div class="flex flex-col items-center gap-6 w-full">
+<div class="w-[34px] h-[34px] rounded-full bg-primary-container flex items-center justify-center shrink-0">
+<svg class="w-5 h-5 text-void-black" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 14.64c-.2.32-.6.4-.92.2C13.2 15.32 9.6 14.88 6.64 15.8c-.36.12-.76-.08-.88-.44-.12-.36.08-.76.44-.88 3.32-1.04 7.28-.52 10.12 1.2.32.2.4.6.2.92zm1.28-2.84c-.24.4-.76.52-1.16.28-3.04-1.84-7.72-2.4-10.56-1.32-.44.16-.92-.08-1.08-.52-.16-.44.08-.92.52-1.08 3.28-1.2 8.48-.6 11.96 1.52.4.24.56.76.32 1.12zm.12-2.96C14.4 8.72 8.36 8.52 4.88 9.6c-.52.16-1.08-.12-1.24-.64-.16-.52.12-1.08.64-1.24 3.96-1.2 10.64-1.04 15.08 1.64.48.28.64.88.36 1.36-.28.48-.88.64-1.36.36z"></path>
+</svg>
+</div>
+<div class="flex flex-col w-full">
+<button class="w-full h-[60px] flex items-center justify-center text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" title="Sync">
+<span class="material-symbols-outlined text-[24px]">sync</span>
+</button>
+<button class="w-full h-[60px] flex items-center justify-center bg-primary/10 text-primary border-l-2 border-primary transition-colors duration-200" title="Library">
+<span class="material-symbols-outlined text-[24px]">library_music</span>
+</button>
+<button class="w-full h-[60px] flex items-center justify-center text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" title="Devices">
+<span class="material-symbols-outlined text-[24px]">stay_current_portrait</span>
+</button>
+<button class="w-full h-[60px] flex items-center justify-center text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" title="Settings">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+</button>
+<button class="w-full h-[60px] flex items-center justify-center text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" title="Logs">
+<span class="material-symbols-outlined text-[24px]">terminal</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-full flex items-center justify-center text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200 p-2 rounded" title="ADB Status">
+<span class="material-symbols-outlined text-[24px]">dynamic_form</span>
+</button>
+<div class="flex flex-col items-center gap-1">
+<div class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></div>
+<span class="font-label-mono text-[8px] text-silver-secondary">ADB</span>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-[60px] flex-1 flex flex-col h-full bg-charcoal-surface">
+<!-- Header Section -->
+<header class="flex justify-between items-center px-xl pt-xl pb-md">
+<h1 class="font-page-title text-page-title text-pure-white">Compare Library</h1>
+<button class="bg-primary-container hover:bg-primary-fixed text-void-black font-body-primary text-body-primary px-lg py-2 rounded-[5px] transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                Run Compare
+            </button>
+</header>
+<!-- Progress Bar -->
+<div class="w-full h-[3px] bg-hairline-gray">
+<div class="h-full bg-primary-container" style="width: 78%;"></div>
+</div>
+<!-- Stat Strip -->
+<div class="flex gap-md px-xl py-lg">
+<div class="bg-lifted-slate border border-hairline-gray rounded-lg px-3 py-[7px] flex flex-col gap-1 min-w-[120px]">
+<span class="font-section-heading text-section-heading text-fog-muted uppercase">Total</span>
+<span class="font-terminal-text text-[20px] font-bold text-pure-white">1,247</span>
+</div>
+<div class="bg-lifted-slate border border-hairline-gray rounded-lg px-3 py-[7px] flex flex-col gap-1 min-w-[120px]">
+<span class="font-section-heading text-section-heading text-fog-muted uppercase">Match</span>
+<span class="font-terminal-text text-[20px] font-bold text-primary-container">1,089</span>
+</div>
+<div class="bg-lifted-slate border border-hairline-gray rounded-lg px-3 py-[7px] flex flex-col gap-1 min-w-[120px]">
+<span class="font-section-heading text-section-heading text-fog-muted uppercase">Missing</span>
+<span class="font-terminal-text text-[20px] font-bold text-[#E22D44]">94</span>
+</div>
+<div class="bg-lifted-slate border border-hairline-gray rounded-lg px-3 py-[7px] flex flex-col gap-1 min-w-[120px]">
+<span class="font-section-heading text-section-heading text-fog-muted uppercase">Dubious</span>
+<span class="font-terminal-text text-[20px] font-bold text-[#F59B23]">64</span>
+</div>
+</div>
+<!-- Two-Column Table Area -->
+<div class="flex-1 flex flex-col overflow-hidden px-xl pb-xl">
+<!-- Table Headers -->
+<div class="flex border-b border-hairline-gray">
+<div class="w-1/2 py-md pr-lg">
+<span class="font-section-heading text-section-heading text-fog-muted uppercase">Spotify Library</span>
+</div>
+<div class="w-[1px] bg-hairline-gray"></div>
+<div class="w-1/2 py-md pl-lg">
+<span class="font-section-heading text-section-heading text-fog-muted uppercase">On Device</span>
+</div>
+</div>
+<!-- Table Body (Scrollable) -->
+<div class="flex-1 overflow-y-auto custom-scrollbar flex">
+<style>
+                    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+                    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb { background: #2A2A2A; border-radius: 4px; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3d4a3d; }
+                </style>
+<div class="w-full flex">
+<!-- Left Column (Spotify) -->
+<div class="w-1/2 flex flex-col border-r border-hairline-gray">
+<!-- Row 1 (JP - High Match) -->
+<div class="h-row-height px-lg flex items-center border-b border-white/5 hover:bg-hover-ash transition-colors duration-100 group">
+<img class="w-8 h-8 rounded-[6px] mr-3 object-cover" data-alt="A macro shot of a glowing neon sign reflecting off a wet asphalt surface in a dense cyberpunk cityscape at night. The colors are highly saturated deep blues and intense hot pinks. The composition is tight, focusing on the texture of the wet ground and the blurred neon light sources. The mood is moody, futuristic, and cinematic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxhTGGVQpGKev6giZkf3kNKDQfhizV_hyTghz52qKsb5d_xOOChe8q0VsOMLOuyVnIBvNbEo2xmR-3fAYpFKM0cWjlVVM9XwSYgxKc7j4ovaRFeje7orRY6TiTRhkLIf5Zxet5QxJl8YuKwz7AGFh0zJ4Ab8IIWjenB300VwrUXT8vcAcW--l3TZoBYaeFHAb_1MT1guYZvc6BvEgtXDJ2Fnc7aAdcIHI_4-P6Kp1f5TxVmrv0yRD1UdsiDsyH5QPpjX568IsG0z8"/>
+<div class="flex flex-col justify-center min-w-0 flex-1">
+<span class="font-body-primary text-body-primary text-pure-white truncate">Idol</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate">YOASOBI</span>
+</div>
+<span class="ml-2 px-1.5 py-0.5 bg-jp-pink/20 text-jp-pink font-label-mono text-label-mono rounded-[3px] uppercase">JP</span>
+</div>
+<!-- Row 2 (KR - Dubious) -->
+<div class="h-row-height px-lg flex items-center border-b border-white/5 hover:bg-hover-ash transition-colors duration-100 group">
+<img class="w-8 h-8 rounded-[6px] mr-3 object-cover" data-alt="A minimalist abstract 3D render of soft, matte geometric shapes including spheres and cylinders arranged on a muted pastel purple background. The lighting is soft and diffused, creating subtle shadows and a calming, contemporary aesthetic. The color palette revolves around gentle violets and soft pinks. The overall feel is modern and clean." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZbuOTaoo66-WHwBIpq5aOTS29qUEqXMhfhJG3q9gKJDhwkrWPMq34XmgQ5vwdn6mhUwjLRvQaaj_tugrCyzNiYTiLZKTkb67oJSU51NLxWxaNRtRzKozB_n3w6gCNu3tWVD5ZTAhID9hL355lIyB215pdDPJwoJi1Ni0TOLhofNQhWaq32tf38SDsUVZYpaRFlGBQmxxZgw-CRwQHya2OLSa9JCbUsKMGKMvUSBHs_l-TFcPb18sE5f3IZ0ymVFIPEgi1GAJBJIw"/>
+<div class="flex flex-col justify-center min-w-0 flex-1">
+<span class="font-body-primary text-body-primary text-pure-white truncate">Super Shy</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate">NewJeans</span>
+</div>
+<span class="ml-2 px-1.5 py-0.5 bg-kr-violet/20 text-kr-violet font-label-mono text-label-mono rounded-[3px] uppercase">KR</span>
+</div>
+<!-- Row 3 (EN - Missing) -->
+<div class="h-row-height px-lg flex items-center border-b border-white/5 hover:bg-hover-ash transition-colors duration-100 group">
+<img class="w-8 h-8 rounded-[6px] mr-3 object-cover" data-alt="A close up of a vintage analog mixing console in a dimly lit recording studio. The focus is sharp on the metallic knobs and faders, with the background blurring into a warm, sepia-toned bokeh. Small glowing indicator lights add flecks of red and amber. The image conveys a sense of retro technical precision and musical history." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsOt8ggyy6YdnFAi_JUJM3vWiGp_Uninb0TpyNw5THTD5un8Seqz7kqqQcLziE7QVuth2KiuA1tML-doNw9Fk86cqgmEqtGlolRwkHI0StLcqQ9UeANljTzYoBZefoOKwq467S8ZuPLTRHDqbouGiRWQqtOHOVMW2_eCp5xxBZtwCggXty5AT2q8MoEbUjGySx7BAITqG8N-oo0O5HiMI4F2DvIOyYzi0BtDnyGymLMRaPpuXyO5I4PGD7QZMhIwCLbRokrZ5dQJI"/>
+<div class="flex flex-col justify-center min-w-0 flex-1">
+<span class="font-body-primary text-body-primary text-pure-white truncate">Do I Wanna Know?</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate">Arctic Monkeys</span>
+</div>
+<span class="ml-2 px-1.5 py-0.5 bg-en-blue/20 text-en-blue font-label-mono text-label-mono rounded-[3px] uppercase">EN</span>
+</div>
+<!-- Row 4 (JP - High Match) -->
+<div class="h-row-height px-lg flex items-center border-b border-white/5 hover:bg-hover-ash transition-colors duration-100 group">
+<img class="w-8 h-8 rounded-[6px] mr-3 object-cover" data-alt="A pair of high-end studio headphones resting over a sleek, modern synthesizer keyboard. The lighting is dramatic and low-key, featuring a cool blue spotlight that highlights the textures of the earcups and keys against a dark, shadowy background. The atmosphere is quiet, focused, and professional." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIbOEYxHVGyar9hqTLUvfQTinysayZBl-UCLJn0FBJH_Ea6kks3zxEW9AJN8RQzq-xfisizHkWYyMB5r2NmAdhPYdcOfEWAgmsTXxMKrsmabU_-aUg6aZ1dGZnJdKv3Rkzf9AN19ElBbFlaSZWHO7nIqRLXgxE0lBDP0GiEnmtNgVW3UskuRZE3vV069bx43EDBR_jA99U1cZRUDr9j2fKRwG6uIAUxg8uSX9xL-BUfHTsLqaBP32x0tLGID3WqSB6gL_BqN8ztRo"/>
+<div class="flex flex-col justify-center min-w-0 flex-1">
+<span class="font-body-primary text-body-primary text-pure-white truncate">Kaikai Kitan</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate">Eve</span>
+</div>
+<span class="ml-2 px-1.5 py-0.5 bg-jp-pink/20 text-jp-pink font-label-mono text-label-mono rounded-[3px] uppercase">JP</span>
+</div>
+<!-- Row 5 (KR - High Match) -->
+<div class="h-row-height px-lg flex items-center border-b border-white/5 hover:bg-hover-ash transition-colors duration-100 group">
+<img class="w-8 h-8 rounded-[6px] mr-3 object-cover" data-alt="A dynamic shot of a vintage condenser microphone standing against a background of blurred, colorful stage lights. The lighting creates a vibrant bokeh effect in shades of magenta, blue, and gold. The microphone itself is in sharp focus, showcasing its metallic mesh and intricate design. The mood is energetic and ready for a live performance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkBft_DgiYN_6CvtpZIMjgcnDZ_n3xAYWYi4_ZPWS7BATRBBX1Snqyd-R2ytHKSLKRzFnpiESG_R-B-pFgnafPDZoc-XDTVLDT0fPIc1YHD66F0maSpBAQQkQab5AGWeomsko8aOBqubPo82PVXMtMj2sMqJ3EIpdamJr-ZXKm_UWlL9OB5YmZIdmgWTD3hnMjqLmn8anJr6z4PJEHHXDBu3GzgCKNwCmOLqZRQTjaXQw37GfGoRNh0R2niHMNvrNfI8Sv68ZZxro"/>
+<div class="flex flex-col justify-center min-w-0 flex-1">
+<span class="font-body-primary text-body-primary text-pure-white truncate">ANTIFRAGILE</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate">LE SSERAFIM</span>
+</div>
+<span class="ml-2 px-1.5 py-0.5 bg-kr-violet/20 text-kr-violet font-label-mono text-label-mono rounded-[3px] uppercase">KR</span>
+</div>
+</div>
+<!-- Right Column (Device Status) -->
+<div class="w-1/2 flex flex-col">
+<!-- Row 1 (97% Match) -->
+<div class="h-row-height pl-lg pr-4 flex items-center justify-between border-b border-white/5 hover:bg-hover-ash transition-colors duration-100">
+<div class="flex items-center gap-3">
+<span class="font-terminal-text text-terminal-text font-bold text-primary-container w-[35px]">97%</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary">✓ Existe</span>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="px-2 py-1 bg-lifted-slate border border-hairline-gray rounded text-silver-secondary hover:text-pure-white transition-colors" title="Search Alt">
+<span class="material-symbols-outlined text-[14px]">search</span>
+</button>
+<button class="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-colors" title="Add to Queue">
+<span class="material-symbols-outlined text-[14px]">queue_music</span>
+</button>
+</div>
+</div>
+<!-- Row 2 (72% Dubious) -->
+<div class="h-row-height pl-lg pr-4 flex items-center justify-between border-b border-white/5 hover:bg-hover-ash transition-colors duration-100">
+<div class="flex items-center gap-3">
+<span class="font-terminal-text text-terminal-text font-bold text-[#F59B23] w-[35px]">72%</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary">? Dudoso</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-2 py-1 bg-lifted-slate border border-hairline-gray rounded text-silver-secondary hover:text-pure-white transition-colors" title="Search Alt">
+<span class="material-symbols-outlined text-[14px]">search</span>
+</button>
+<button class="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-colors" title="Add to Queue">
+<span class="material-symbols-outlined text-[14px]">queue_music</span>
+</button>
+</div>
+</div>
+<!-- Row 3 (45% Missing) -->
+<div class="h-row-height pl-lg pr-4 flex items-center justify-between border-b border-white/5 hover:bg-hover-ash transition-colors duration-100 bg-[#E22D44]/5">
+<div class="flex items-center gap-3">
+<span class="font-terminal-text text-terminal-text font-bold text-[#E22D44] w-[35px]">45%</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary">— Falta</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-2 py-1 bg-lifted-slate border border-hairline-gray rounded text-silver-secondary hover:text-pure-white transition-colors" title="Search Alt">
+<span class="material-symbols-outlined text-[14px]">search</span>
+</button>
+<button class="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-colors" title="Add to Queue">
+<span class="material-symbols-outlined text-[14px]">queue_music</span>
+</button>
+</div>
+</div>
+<!-- Row 4 (99% Match) -->
+<div class="h-row-height pl-lg pr-4 flex items-center justify-between border-b border-white/5 hover:bg-hover-ash transition-colors duration-100">
+<div class="flex items-center gap-3">
+<span class="font-terminal-text text-terminal-text font-bold text-primary-container w-[35px]">99%</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary">✓ Existe</span>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="px-2 py-1 bg-lifted-slate border border-hairline-gray rounded text-silver-secondary hover:text-pure-white transition-colors" title="Search Alt">
+<span class="material-symbols-outlined text-[14px]">search</span>
+</button>
+<button class="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-colors" title="Add to Queue">
+<span class="material-symbols-outlined text-[14px]">queue_music</span>
+</button>
+</div>
+</div>
+<!-- Row 5 (88% Match) -->
+<div class="h-row-height pl-lg pr-4 flex items-center justify-between border-b border-white/5 hover:bg-hover-ash transition-colors duration-100">
+<div class="flex items-center gap-3">
+<span class="font-terminal-text text-terminal-text font-bold text-primary-container w-[35px]">88%</span>
+<span class="font-body-secondary text-body-secondary text-silver-secondary">✓ Existe</span>
+</div>
+<div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="px-2 py-1 bg-lifted-slate border border-hairline-gray rounded text-silver-secondary hover:text-pure-white transition-colors" title="Search Alt">
+<span class="material-symbols-outlined text-[14px]">search</span>
+</button>
+<button class="px-2 py-1 bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition-colors" title="Add to Queue">
+<span class="material-symbols-outlined text-[14px]">queue_music</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

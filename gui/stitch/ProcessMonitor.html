@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Process Monitor - Device Sync</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary": "#492900",
+                      "tertiary-container": "#ff767b",
+                      "surface-variant": "#353534",
+                      "pure-white": "#FFFFFF",
+                      "charcoal-surface": "#111111",
+                      "void-black": "#0D0D0D",
+                      "ru-teal": "#55EFC4",
+                      "background": "#131313",
+                      "on-primary-container": "#004118",
+                      "inverse-surface": "#e5e2e1",
+                      "surface-container-high": "#2a2a2a",
+                      "silver-secondary": "#B3B3B3",
+                      "on-surface": "#e5e2e1",
+                      "hover-ash": "#222222",
+                      "es-yellow": "#FDCB6E",
+                      "surface-container-highest": "#353534",
+                      "error-container": "#93000a",
+                      "en-blue": "#74B9FF",
+                      "primary-fixed": "#72fe8f",
+                      "surface-container-low": "#1c1b1b",
+                      "on-secondary-fixed": "#2c1700",
+                      "surface-container": "#201f1f",
+                      "on-primary": "#003914",
+                      "on-error-container": "#ffdad6",
+                      "primary-container": "#1db954",
+                      "surface-tint": "#53e076",
+                      "surface-dim": "#131313",
+                      "surface": "#131313",
+                      "tertiary": "#ffb3b3",
+                      "on-error": "#690005",
+                      "on-primary-fixed-variant": "#005320",
+                      "tertiary-fixed": "#ffdad9",
+                      "secondary-fixed-dim": "#ffb86a",
+                      "terminal-bg": "#090909",
+                      "secondary-container": "#da8500",
+                      "error": "#ffb4ab",
+                      "primary": "#53e076",
+                      "on-secondary-container": "#492900",
+                      "inverse-primary": "#006e2d",
+                      "cn-red": "#FF7675",
+                      "hairline-gray": "#2A2A2A",
+                      "jp-pink": "#FF6B9D",
+                      "on-background": "#e5e2e1",
+                      "on-tertiary-fixed-variant": "#920020",
+                      "primary-fixed-dim": "#53e076",
+                      "on-tertiary-fixed": "#410009",
+                      "on-secondary-fixed-variant": "#683d00",
+                      "on-primary-fixed": "#002108",
+                      "outline": "#869585",
+                      "tertiary-fixed-dim": "#ffb3b3",
+                      "kr-violet": "#A29BFE",
+                      "secondary": "#ffb86a",
+                      "on-surface-variant": "#bccbb9",
+                      "on-tertiary-container": "#760018",
+                      "inverse-on-surface": "#313030",
+                      "fog-muted": "#666666",
+                      "secondary-fixed": "#ffdcbc",
+                      "outline-variant": "#3d4a3d",
+                      "surface-container-lowest": "#0e0e0e",
+                      "surface-bright": "#3a3939",
+                      "lifted-slate": "#1A1A1A",
+                      "on-tertiary": "#680014"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "tight": "4px",
+                      "base": "8px",
+                      "md": "12px",
+                      "row-height": "40px",
+                      "xl": "24px",
+                      "lg": "16px",
+                      "sidebar-width": "60px"
+              },
+              "fontFamily": {
+                      "body-primary": [
+                              "Inter"
+                      ],
+                      "page-title": [
+                              "Inter"
+                      ],
+                      "body-secondary": [
+                              "Inter"
+                      ],
+                      "terminal-text": [
+                              "JetBrains Mono"
+                      ],
+                      "section-heading": [
+                              "Inter"
+                      ],
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {
+                      "body-primary": [
+                              "13px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "page-title": [
+                              "17px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-secondary": [
+                              "11.5px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "terminal-text": [
+                              "11.5px",
+                              {
+                                      "lineHeight": "1.75",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "section-heading": [
+                              "10px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "letterSpacing": "0.08em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-mono": [
+                              "11px",
+                              {
+                                      "lineHeight": "1.0",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2A2A2A;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3a3939;
+        }
+        
+        .terminal-log-info { color: #A8C9A8; }
+        .terminal-log-warning { color: #E0C87A; }
+        .terminal-log-error { color: #FF8A9A; }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .cursor-blink {
+            animation: blink 1s step-end infinite;
+        }
+      </style>
+</head>
+<body class="bg-charcoal-surface text-on-surface h-screen w-screen overflow-hidden flex font-body-primary text-body-primary">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[60px] bg-void-black border-r border-hairline-gray flex flex-col items-center py-lg justify-between z-50">
+<div class="flex flex-col items-center gap-xl w-full">
+<div class="flex flex-col items-center gap-1 mb-md">
+<span class="material-symbols-outlined text-primary text-[24px]">sync</span>
+<span class="font-section-heading text-section-heading text-primary uppercase tracking-widest hidden">SyncFlow</span>
+</div>
+<div class="flex flex-col w-full">
+<a class="w-full flex justify-center py-md text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" href="#" title="Sync">
+<span class="material-symbols-outlined">sync</span>
+</a>
+<a class="w-full flex justify-center py-md text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" href="#" title="Library">
+<span class="material-symbols-outlined">library_music</span>
+</a>
+<a class="w-full flex justify-center py-md text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" href="#" title="Devices">
+<span class="material-symbols-outlined">stay_current_portrait</span>
+</a>
+<a class="w-full flex justify-center py-md text-silver-secondary hover:bg-hover-ash hover:text-pure-white transition-colors duration-200" href="#" title="Settings">
+<span class="material-symbols-outlined">settings</span>
+</a>
+<!-- Active Nav Item: Logs -->
+<a class="w-full flex justify-center py-md bg-primary/10 text-primary border-l-2 border-primary transition-colors duration-200" href="#" title="Logs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</a>
+</div>
+</div>
+<div class="flex flex-col w-full items-center">
+<div class="w-full flex justify-center py-md text-silver-secondary relative group cursor-help">
+<span class="material-symbols-outlined">dynamic_form</span>
+<div class="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-[60px] flex-1 flex flex-col h-full bg-charcoal-surface overflow-hidden">
+<!-- Page Header -->
+<header class="w-full px-xl py-[20px] flex-shrink-0 flex items-center justify-between border-b border-hairline-gray/50">
+<h1 class="font-page-title text-page-title text-pure-white">Process Monitor</h1>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-silver-secondary cursor-pointer hover:text-pure-white transition-colors duration-150">more_vert</span>
+</div>
+</header>
+<!-- Toolbar -->
+<div class="w-full bg-lifted-slate border-b border-hairline-gray px-lg py-[10px] flex-shrink-0 flex items-center justify-between">
+<div class="flex items-center gap-md">
+<!-- Script Dropdown -->
+<div class="relative">
+<select class="appearance-none bg-lifted-slate border border-hairline-gray rounded text-pure-white font-body-primary text-body-primary px-3 py-1 pr-8 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 cursor-pointer">
+<option>smart_compare.py</option>
+<option>full_sync.py</option>
+<option>adb_push.py</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-silver-secondary pointer-events-none text-[16px]">arrow_drop_down</span>
+</div>
+<!-- Action Buttons -->
+<button class="bg-primary text-void-black font-body-primary text-body-primary px-3 py-1 rounded flex items-center gap-1 hover:bg-surface-tint transition-colors">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                    Run
+                </button>
+<button class="bg-transparent border border-hairline-gray text-fog-muted font-body-primary text-body-primary px-3 py-1 rounded flex items-center gap-1 cursor-not-allowed">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">stop</span>
+                    Stop
+                </button>
+<button class="bg-transparent border border-hairline-gray text-silver-secondary font-body-primary text-body-primary px-3 py-1 rounded flex items-center gap-1 hover:text-pure-white hover:border-silver-secondary transition-colors">
+                    Clear
+                </button>
+</div>
+<!-- Progress Indicator -->
+<div class="flex items-center gap-3">
+<span class="font-label-mono text-label-mono text-silver-secondary">Running... 842/1247</span>
+<div class="w-[220px] h-[4px] bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 67%;"></div>
+</div>
+</div>
+</div>
+<!-- Terminal Log Area -->
+<div class="flex-1 bg-terminal-bg p-[14px_12px] overflow-y-auto custom-scrollbar font-terminal-text text-terminal-text">
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:22</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">Iniciando comparación de biblioteca...</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:23</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">Conectando con Spotify API... OK</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:24</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">Cargando tracks de Spotify: 1,247 encontrados</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:25</div>
+<div class="w-[70px] flex-shrink-0 text-es-yellow font-bold">[WARNING]</div>
+<div class="flex-1 terminal-log-warning">Track no encontrado: '夜に駆ける' — buscando alternativa...</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:26</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">Match encontrado: score 91% → aprobado automáticamente</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:27</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">Procesando: [420/1247] tracks...</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100 bg-error-container/10 border-l-2 border-cn-red -ml-[2px] pl-[2px]">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:28</div>
+<div class="w-[70px] flex-shrink-0 text-cn-red font-bold">[ERROR]</div>
+<div class="flex-1 terminal-log-error">ADB disconnected — reintentando en 3s...</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:31</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">ADB reconectado exitosamente</div>
+</div>
+<div class="flex flex-row w-full mb-1 hover:bg-hover-ash/30 transition-colors duration-100">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:35</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">Progreso: [842/1247] tracks procesados (67%)</div>
+</div>
+<div class="flex flex-row w-full mb-1">
+<div class="w-[65px] flex-shrink-0 text-fog-muted">09:14:36</div>
+<div class="w-[70px] flex-shrink-0 text-primary font-bold">[INFO]</div>
+<div class="flex-1 terminal-log-info">
+<span class="inline-block w-2 h-[1em] bg-silver-secondary cursor-blink align-middle ml-1"></span>
+</div>
+</div>
+</div>
+</main>
+</body></html>

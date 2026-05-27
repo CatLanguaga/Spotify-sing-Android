@@ -1,6 +1,6 @@
 # Web Roadmap — Spotify Downloader Portal
 
-**Objetivo:** Convertir esta app de escritorio en un portal web Docker-friendly para descargar música de Spotify directo al dispositivo del usuario. Sin ADB, sin comparación con teléfono.
+**Objetivo:** Portal web Docker-friendly para descargar música de Spotify directo al dispositivo del usuario. Sin ADB, sin comparación con teléfono.
 
 **Referentes UX:**
 - [cobalt.tools](https://cobalt.tools) — input único, proceso inmediato, minimalismo radical
@@ -8,19 +8,24 @@
 - [Exportify](https://exportify.net) — login Spotify OAuth, grid de playlists, UX limpia
 - [spotDL web](https://github.com/spotDL/spotify-downloader) — mismo core técnico
 
+**Pivot vigente (2026-05-26):** single-page, sin cola persistente. Resultados inline, descarga directa al browser. Referencia visual: `gui/design-demos/demo-singlepage.html`.
+
 ---
 
-## Fase 0 — Arquitectura Docker
+## 🎯 Estado actual
 
-- [ ] `Dockerfile` para el backend FastAPI (Python 3.11-slim, instalar ffmpeg + yt-dlp)
-- [ ] `Dockerfile` para el frontend React (build estático servido por nginx)
-- [ ] `docker-compose.yml` — servicios: `backend`, `frontend`, volumen `downloads/`
-- [ ] Variables de entorno en lugar de `~/.spotifytoyoutube/config.json`:
-  - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` en `.env`
-  - `DOWNLOAD_DIR` → `/app/downloads` (montado como volumen)
-- [ ] `ConfigManager` lee env vars con fallback a archivo (para dev local)
-- [ ] `.env.example` documentado
-- [ ] `README-docker.md` con instrucciones de 3 pasos: clone → copy .env → docker compose up
+| Fase | Estado | Notas |
+|---|---|---|
+| 1 — Eliminar ADB | ✅ Completa | |
+| 2 — Backend download-to-browser | ✅ Completa | usa `pytubefix` en lugar de `yt-dlp` |
+| 3 — Frontend web-first | ✅ Mayormente | Cola/Sidebar/multi-select N/A por pivot single-page |
+| 4 — Range slider 50 tracks | ⏳ Pendiente | extensión natural del frontend |
+| 5 — UX Polish | ⏳ Parcial | |
+| 6 — Matching YouTube | ⏳ Pendiente | |
+| 7 — SEO + estructura | ⏳ Pendiente | |
+| 8 — Features adicionales | 📋 Backlog priorizado | |
+| 9 — Arquitectura Docker | ⏳ Pendiente | pre-deploy |
+| 10 — Deploy | ⏳ Pendiente | depende de Fase 9 |
 
 ---
 
@@ -40,7 +45,7 @@
 
 ## Fase 2 — Backend: download-to-browser
 
-El flujo cambia: el servidor descarga el archivo → el browser lo recibe automáticamente.
+El flujo: el servidor descarga el archivo → el browser lo recibe automáticamente.
 
 - [x] Nuevo endpoint `GET /api/queue/{item_id}/file` — sirve el archivo descargado como `FileResponse` con `Content-Disposition: attachment`
 - [x] El frontend hace `window.location.href = /api/queue/{id}/file` tras descarga exitosa → browser descarga el archivo
@@ -53,95 +58,61 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 
 ## Fase 3 — Frontend: rediseño web-first
 
+> Implementada 2026-05-27 contra `gui/design-demos/demo-singlepage.html` (single-page pivot). Items de Cola/Sidebar/selección múltiple superseded por pivot — marcados N/A.
+
 ### Vista principal — Search / Import
 
 > Inspiración: cobalt.tools. Una sola acción domina la pantalla.
 
-- [ ] Hero con input grande: pegar URL de Spotify (track, álbum, o playlist)
-- [ ] Validación en tiempo real: detectar tipo (track / album / playlist) y mostrarlo con ícono
-- [ ] Botón "Importar" → llama `GET /api/spotify/resolve?url=` → muestra resultados
-- [ ] Estado vacío elegante con instrucciones y ejemplos de URLs válidas
+- [x] Hero con input grande: pegar URL de Spotify (track, álbum, o playlist) → `components/HeroSearch.tsx`
+- [x] Validación en tiempo real: detectar tipo (track / album / playlist) y mostrarlo con ícono (chip "✓ detectado")
+- [x] Botón "Buscar" → llama `GET /api/spotify/resolve?url=` → muestra resultados (scroll a `#results`)
+- [x] Estado vacío elegante con instrucciones y ejemplos de URLs válidas (chips track/álbum/playlist)
 
 ### Vista de Playlist / Álbum
 
-> Inspiración: Exportify (grid de tracks), metube (selección múltiple).
+> Inspiración: Exportify (grid de tracks), metube (selección múltiple). NOTA: pivot a single-page eliminó cola persistente y checkbox-select — cada track descarga directo al browser.
 
-- [ ] Header con cover art grande, nombre de playlist, total de tracks, duración total
-- [ ] Tabla de tracks: cover (40px), título, artista, duración, idioma badge, checkbox
-- [ ] Selección múltiple: checkbox por fila + "Seleccionar todos" en header
-- [ ] Barra inferior sticky: `N tracks seleccionados · Formato [mp3▾] · Calidad [320▾] · [Agregar a cola]`
-- [ ] Filtro por texto (nombre/artista) + filtro por idioma
-- [ ] Paginación o scroll infinito para playlists grandes
+- [x] Header con cover art grande, nombre de playlist, total de tracks, duración total → `components/PlaylistCard.tsx`
+- [x] Tabla de tracks: cover (44px), título, artista, duración, idioma badge → `components/TrackRow.tsx`
+- [~] ~~Selección múltiple: checkbox por fila + "Seleccionar todos" en header~~ — N/A (pivot single-page, "Descargar todo" reemplaza)
+- [~] ~~Barra inferior sticky con "Agregar a cola"~~ — N/A (sin cola; format/quality + "Descargar todo" en header del card)
+- [x] Filtro por texto (nombre/artista)
+- [ ] Filtro por idioma — pendiente
+- [ ] Paginación o scroll infinito — diferido a Fase 4 (range slider con clamp 50)
 
 ### Vista de Cola (Queue)
 
-> Inspiración: metube. Cards con progreso, auto-descarga al terminar.
+> SUPERSEDED — pivot single-page eliminó cola persistente. Estados de descarga viven inline en `TrackRow` (idle → downloading → done/err) con mini progress bar + auto-download al browser via `/api/queue/{id}/file`.
 
-- [ ] Cards compactas: cover, título, artista, formato/calidad, estado, barra de progreso
-- [ ] Estados: `pendiente → buscando YT → descargando → listo ✓ / error ✗`
-- [ ] Al llegar a "listo": botón "⬇ Descargar" + descarga automática via browser
-- [ ] Botón de retry en cards de error
-- [ ] "Descargar todos listos" — batch download de todos los archivos completados
-- [ ] Contador de progreso batch: `(3 / 8) descargando...`
-- [ ] Botón "Limpiar completados"
+- [~] ~~Cards compactas con progreso~~ — N/A (inline mini progress bar en TrackRow)
+- [x] Estados: `idle → downloading → done ✓ / err ✗` (TrackRow state machine)
+- [x] Al llegar a "done": descarga automática vía `window.location.href = /api/queue/{id}/file`
+- [x] Botón de retry en estado error (TrackRow muestra "↻ Reintentar")
+- [x] "Descargar todo" — batch con stagger 180ms (PlaylistCard `downloadAll`)
+- [x] Contador de progreso batch: `N de M descargados` en `.pl-foot`
+- [~] ~~Limpiar completados~~ — N/A (sin cola persistente)
 
 ### Vista de Configuración
 
-- [ ] Campos: Spotify Client ID, Spotify Client Secret (con link a developer.spotify.com)
-- [ ] Formato por defecto (mp3 / m4a / opus) y calidad (128 / 192 / 320 kbps)
-- [ ] Test de conexión Spotify: botón "Verificar credenciales"
-- [ ] Sin campos de ADB, sin carpeta de descarga (no aplica en web)
-- [ ] Info sobre cómo crear una Spotify App con pasos visuales
+- [x] Campos: Spotify Client ID, Spotify Client Secret (con link a developer.spotify.com) → `views/SettingsView.tsx`
+- [x] Formato por defecto (mp3 / m4a / opus) y calidad (128 / 192 / 320 kbps)
+- [x] Test de conexión Spotify: botón "Verificar credenciales" (pega a `/api/spotify/status`)
+- [x] Sin campos de ADB, sin carpeta de descarga
+- [ ] Info visual sobre cómo crear una Spotify App — solo link de momento
 
 ### Sidebar / Navegación
 
-- [ ] Items: **Inicio** (search/import), **Cola**, **Configuración**
-- [ ] Sin item "Compare" ni indicadores ADB
-- [ ] Badge en "Cola" con count de items pendientes
-- [ ] Logo + nombre de la app arriba
+> SUPERSEDED — pivot single-page reemplazó sidebar por `components/Topbar.tsx` con nav horizontal.
+
+- [~] ~~Sidebar~~ — N/A. Topbar con: brand → Inicio · ¿Cómo funciona? · FAQ · Configuración
+- [x] Sin item "Compare" ni indicadores ADB
+- [~] ~~Badge en "Cola"~~ — N/A (sin cola)
+- [x] Logo + nombre de la app en topbar
 
 ---
 
-## Fase 4 — UX Polish
-
-### Flujo rápido (single-track)
-
-- [ ] Para URLs de track individual: saltarse playlist view, ir directo a cola con el track pre-cargado
-- [ ] Modal de confirmación mínimo: formato + calidad + "Descargar ahora"
-
-### YouTube matching
-
-- [ ] El backend busca YT automáticamente al agregar a cola (ya existe parcialmente)
-- [ ] Si el match tiene score < 65%: mostrar modal de revisión con 3 opciones alternativas
-- [ ] El usuario puede buscar manualmente si ninguna opción convence
-
-### Feedback visual
-
-- [ ] Toast notifications para: track agregado a cola, descarga lista, error
-- [ ] Skeleton loaders en playlist view mientras carga
-- [ ] Animación de progreso real (parsear `[X/Y]` del output de yt-dlp via WebSocket)
-
-### Responsive / Mobile
-
-- [ ] La app debe funcionar en móvil (descargar desde el teléfono)
-- [ ] Sidebar colapsa a bottom navigation en mobile
-- [ ] Cards de cola apiladas, touch-friendly (48px min tap targets)
-- [ ] Input de URL acepta Share desde Spotify mobile
-
----
-
-## Fase 5 — Deploy
-
-- [ ] `docker compose up -d` levanta todo en puerto 8080
-- [ ] Nginx sirve el frontend estático y hace proxy al backend en `/api/`
-- [ ] Soporte para reverse proxy (headers `X-Forwarded-For`, etc.)
-- [ ] Health check endpoint `GET /health`
-- [ ] Logs estructurados (JSON) en el backend para producción
-- [ ] Opción: deploy en Fly.io / Railway con un click (Dockerfile ya listo)
-
----
-
-## Fase 6 — UX de visualización: límite + range slider dinámico
+## Fase 4 — UX de visualización: límite + range slider dinámico
 
 > Decisión de diseño confirmada (2026-05-26): pivot a single-page, sin cola persistente. Resultados inline, descarga directa. Ver `gui/design-demos/demo-singlepage.html`.
 
@@ -170,6 +141,64 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 - [ ] Track individual / álbum < 50: sin slider
 - [ ] Loading skeleton mientras refetch (no parpadeo de tabla)
 - [ ] Persistir última ventana en `localStorage` por `playlist_id`
+
+---
+
+## Fase 5 — UX Polish
+
+### Flujo rápido (single-track)
+
+- [ ] Para URLs de track individual: saltarse playlist view, ir directo a cola con el track pre-cargado
+- [ ] Modal de confirmación mínimo: formato + calidad + "Descargar ahora"
+
+### Feedback visual
+
+- [ ] Toast notifications para: track agregado a cola, descarga lista, error
+- [ ] Skeleton loaders en playlist view mientras carga
+- [ ] Animación de progreso real (parsear `[X/Y]` del output de pytubefix/ffmpeg via WebSocket)
+
+### Responsive / Mobile
+
+- [ ] La app debe funcionar en móvil (descargar desde el teléfono)
+- [ ] Topbar colapsa a bottom navigation en mobile
+- [ ] Cards apiladas, touch-friendly (48px min tap targets)
+- [ ] Input de URL acepta Share desde Spotify mobile
+
+---
+
+## Fase 6 — Mejorar matching YouTube (reducir errores y descargas erróneas)
+
+### Scoring del match
+
+- [ ] Algoritmo de score considera: duración (±3s del Spotify duration), artista normalizado (lowercase, sin features), título normalizado (quitar `(Official Video)`, `[MV]`, `Lyric Video`, etc.), año, canal verificado
+- [ ] Threshold mínimo: si `score < 65` no auto-descarga, abre modal de revisión con top 3 alternativas
+- [ ] Threshold óptimo: si `score ≥ 90` auto-descarga sin confirmación
+
+### Estrategias de búsqueda
+
+- [ ] Query primaria: `"Artista" "Título" topic` (canales "Topic" de YouTube son re-uploads oficiales del label, suelen ser exactos)
+- [ ] Fallback 1: `"Artista" "Título" audio` (excluye videos)
+- [ ] Fallback 2: `"Artista" "Título" lyrics` (suele ser audio limpio)
+- [ ] Fallback 3: query simple sin comillas
+- [ ] Filtrar resultados con duración fuera de ±10s del track Spotify
+- [ ] Penalizar canales con palabras flag: `cover`, `remix`, `karaoke`, `8d`, `slowed`, `sped up`, `nightcore`, `live` (a menos que el track Spotify ya sea live)
+
+### Manual override
+
+- [ ] Botón "Buscar manualmente" en cada track → modal con search bar YouTube + preview embeds
+- [ ] Botón "Pegar URL de YouTube" para forzar source específico
+- [ ] Persistir overrides exitosos por `spotify_id` en cache local (si el usuario corrigió un track, recordarlo)
+
+### Caché y resiliencia
+
+- [ ] Caché de búsqueda YouTube por `spotify_id` — si 5 usuarios piden el mismo track, no buscamos 5 veces
+- [ ] Detección de geo-restricción YouTube: si el track falla por región, sugerir VPN o source alternativo
+
+### Calidad del audio source
+
+- [ ] Preferir streams con bitrate más alto disponible (ya implementado parcialmente)
+- [ ] Si el bitrate del source < bitrate destino solicitado: warning visible al usuario
+- [ ] Detectar y rechazar streams "music" cortos (intros, sketches) por duración
 
 ---
 
@@ -211,46 +240,12 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 
 ---
 
-## Fase 8 — Mejorar matching YouTube (reducir errores y descargas erróneas)
-
-### Scoring del match
-
-- [ ] Algoritmo de score considera: duración (±3s del Spotify duration), artista normalizado (lowercase, sin features), título normalizado (quitar `(Official Video)`, `[MV]`, `Lyric Video`, etc.), año, canal verificado
-- [ ] Threshold mínimo: si `score < 65` no auto-descarga, abre modal de revisión con top 3 alternativas
-- [ ] Threshold óptimo: si `score ≥ 90` auto-descarga sin confirmación
-
-### Estrategias de búsqueda
-
-- [ ] Query primaria: `"Artista" "Título" topic` (canales "Topic" de YouTube son re-uploads oficiales del label, suelen ser exactos)
-- [ ] Fallback 1: `"Artista" "Título" audio` (excluye videos)
-- [ ] Fallback 2: `"Artista" "Título" lyrics` (suele ser audio limpio)
-- [ ] Fallback 3: query simple sin comillas
-- [ ] Filtrar resultados con duración fuera de ±10s del track Spotify
-- [ ] Penalizar canales con palabras flag: `cover`, `remix`, `karaoke`, `8d`, `slowed`, `sped up`, `nightcore`, `live` (a menos que el track Spotify ya sea live)
-
-### Manual override
-
-- [ ] Botón "Buscar manualmente" en cada track → modal con search bar YouTube + preview embeds
-- [ ] Botón "Pegar URL de YouTube" para forzar source específico
-- [ ] Persistir overrides exitosos por `spotify_id` en cache local (si el usuario corrigió un track, recordarlo)
-
-### Calidad del audio source
-
-- [ ] Preferir streams con bitrate más alto disponible (ya implementado parcialmente)
-- [ ] Si el bitrate del source < bitrate destino solicitado: warning visible al usuario
-- [ ] Detectar y rechazar streams "music" cortos (intros, sketches) por duración
-
----
-
-## Fase 9 — Sugerencias adicionales (priorizadas)
+## Fase 8 — Features adicionales (backlog priorizado)
 
 ### 🔥 Alto impacto
 
 - [ ] **Persistencia de credenciales Spotify por sesión** (cookie/localStorage encriptado) — no pedir al usuario repegar Client ID cada visita
 - [ ] **Soporte para Spotify shortlinks** `spotify.link/xyz` (302 redirect a URL real) — los usuarios mobile comparten estos
-- [ ] **Rate limiting backend** por IP (10 reqs/min) para auto-hosted públicos
-- [ ] **Caché de búsqueda YouTube** por `spotify_id` — si 5 usuarios piden el mismo track, no buscamos 5 veces
-- [ ] **Detección de geo-restricción YouTube**: si el track falla por región, sugerir VPN o source alternativo
 - [ ] **Sanitización de filenames** para CJK / árabe / emojis (algunos sistemas de archivos rompen)
 
 ### ⚡ Medio impacto
@@ -264,7 +259,6 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 - [ ] **Keyboard shortcuts**: `Cmd/Ctrl+V` desde cualquier parte, `Enter` para buscar, `D` para descargar todo
 - [ ] **Dark mode toggle** con `prefers-color-scheme` por defecto
 - [ ] **i18n ES/EN** mínimo — JSON de strings, switch en footer
-- [ ] **Progress bar realista** vía WebSocket (ya existe `ws_runner`) — parsea `[X/Y]` de pytubefix/ffmpeg
 
 ### 🌱 Bajo impacto / nice-to-have
 
@@ -277,8 +271,36 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 - [ ] **Webhook on-complete**: para auto-hosted, callback POST cuando un job termina
 - [ ] **Telemetría opcional self-hosted** (Plausible/Umami) — sin trackers third-party
 
+---
+
+## Fase 9 — Arquitectura Docker
+
+- [ ] `Dockerfile` para el backend FastAPI (Python 3.11-slim, instalar ffmpeg + pytubefix)
+- [ ] `Dockerfile` para el frontend React (build estático servido por nginx)
+- [ ] `docker-compose.yml` — servicios: `backend`, `frontend`, volumen `downloads/`
+- [ ] Variables de entorno en lugar de `~/.spotifytoyoutube/config.json`:
+  - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` en `.env`
+  - `DOWNLOAD_DIR` → `/app/downloads` (montado como volumen)
+- [ ] `ConfigManager` lee env vars con fallback a archivo (para dev local)
+- [ ] `.env.example` documentado
+- [ ] `README-docker.md` con instrucciones de 3 pasos: clone → copy .env → docker compose up
+
+---
+
+## Fase 10 — Deploy
+
+### Infraestructura
+
+- [ ] `docker compose up -d` levanta todo en puerto 8080
+- [ ] Nginx sirve el frontend estático y hace proxy al backend en `/api/`
+- [ ] Soporte para reverse proxy (headers `X-Forwarded-For`, etc.)
+- [ ] Health check endpoint `GET /health`
+- [ ] Logs estructurados (JSON) en el backend para producción
+- [ ] Opción: deploy en Fly.io / Railway con un click (Dockerfile ya listo)
+
 ### 🛡️ Seguridad / robustez
 
+- [ ] **Rate limiting backend** por IP (10 reqs/min) para auto-hosted públicos
 - [ ] **CSRF protection** en endpoints POST (FastAPI middleware)
 - [ ] **CORS estricto** — solo dominio configurado, no `*`
 - [ ] **Input validation Pydantic estricta** en todos los body params
@@ -301,7 +323,7 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 |---|---|
 | `src/spotify_client.py` | ✅ Queda igual |
 | `src/downloader.py` | ✅ Queda igual |
-| `src/config.py` | 🔄 Añadir lectura de env vars |
+| `src/config.py` | 🔄 Añadir lectura de env vars (Fase 9) |
 | `gui/backend/routes/spotify.py` | ✅ Queda (puede necesitar endpoint `/resolve`) |
 | `gui/backend/routes/queue.py` | 🔄 Eliminar ADB, añadir `FileResponse` |
 | `gui/backend/routes/config.py` | 🔄 Minor adjustments |
@@ -311,6 +333,6 @@ El flujo cambia: el servidor descarga el archivo → el browser lo recibe autom�
 | `gui/frontend/src/views/MonitorView.tsx` | ✅ Queda |
 | `gui/frontend/src/views/SettingsView.tsx` | 🔄 Quitar campos ADB |
 | `gui/frontend/src/components/AdbConnectModal.tsx` | ❌ Eliminar |
-| `gui/frontend/src/components/Sidebar.tsx` | 🔄 Quitar ADB indicator, quitar Compare |
+| `gui/frontend/src/components/Sidebar.tsx` | 🔄 Reemplazado por `Topbar.tsx` |
 | Nueva vista: SearchView / ImportView | 🆕 Crear |
-| `Dockerfile` + `docker-compose.yml` | 🆕 Crear |
+| `Dockerfile` + `docker-compose.yml` | 🆕 Crear (Fase 9) |

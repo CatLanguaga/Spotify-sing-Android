@@ -42,13 +42,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       }}>
         {toasts.map(t => (
           <div key={t.id} style={{
-            background: '#1A1A1A',
+            background: '#fff',
             border: `1px solid ${COLORS[t.type]}`,
             borderLeft: `3px solid ${COLORS[t.type]}`,
-            borderRadius: 8, padding: '10px 16px',
-            color: '#fff', fontSize: 13, fontWeight: 500,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-            minWidth: 220,
+            borderRadius: 10, padding: '12px 18px',
+            color: '#0F0F11', fontSize: 14, fontWeight: 500,
+            boxShadow: '0 8px 24px rgba(15,15,17,0.12)',
+            minWidth: 240, pointerEvents: 'auto',
             animation: 'fadeInUp 0.18s ease',
           }}>
             {t.message}

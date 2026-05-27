@@ -20,6 +20,7 @@ from gui.backend.routes import queue as queue_routes
 from src.config import ConfigManager
 from src.downloader import download_audio
 from src.spotify_client import SpotifyClient
+from src.youtube_client import YouTubeClient
 
 router = APIRouter(tags=["download"])
 
@@ -36,6 +37,12 @@ _SPOTIFY_URL_RE = re.compile(
 
 class DirectDownloadRequest(BaseModel):
     url: str
+    fmt: str = "mp3"
+    quality: int = 320
+
+
+class TrackDownloadRequest(BaseModel):
+    spotify_id: str
     fmt: str = "mp3"
     quality: int = 320
 
@@ -226,6 +233,88 @@ def download_direct(payload: DirectDownloadRequest, background_tasks: Background
     job_id = _new_job(payload.url, parsed["type"])
     background_tasks.add_task(_run_direct_job, job_id, payload.url, payload.fmt, payload.quality)
     return {"job_id": job_id, "kind": parsed["type"]}
+
+
+@router.post("/download/track")
+def download_single_track(payload: TrackDownloadRequest):
+    """Synchronous one-shot: spotify_id -> YT search -> download -> return queue item_id."""
+    deps = _check_dependencies()
+    if not deps.ready:
+        missing = [k for k, v in deps.model_dump().items() if v is False and k != "ready"]
+        raise HTTPException(503, f"Server missing dependencies: {', '.join(missing)}")
+
+    client = _get_spotify_client()
+    if not client.authenticate():
+        raise HTTPException(500, "Spotify auth failed")
+
+    try:
+        t = client.sp.track(payload.spotify_id)
+    except Exception as exc:
+        raise HTTPException(404, f"Spotify track lookup failed: {exc}")
+
+    album = t.get("album", {}) or {}
+    art = album.get("images", [{}])[0].get("url") if album.get("images") else None
+    name = t["name"]
+    artist = t["artists"][0]["name"] if t["artists"] else "Unknown"
+    all_artists = ", ".join(a["name"] for a in t["artists"])
+    duration_ms = t.get("duration_ms", 0)
+
+    yt = YouTubeClient()
+    try:
+        results = yt.search_song_results(name, artist, duration_ms, limit=1)
+    except Exception as exc:
+        raise HTTPException(502, f"YouTube search failed: {exc}")
+
+    if not results:
+        raise HTTPException(404, "No YouTube match found.")
+
+    youtube_url = results[0]["url"]
+
+    item = QueueItem(
+        id=str(uuid.uuid4()),
+        title=name,
+        artist=all_artists or artist,
+        album=album.get("name", ""),
+        language="Other",
+        score=0.0,
+        status=QueueStatus.downloading,
+        spotify_id=payload.spotify_id,
+        cover_url=art,
+        youtube_url=youtube_url,
+        fmt=payload.fmt,
+        quality=payload.quality,
+    ).model_dump()
+
+    items = queue_routes._load()
+    items.append(item)
+    queue_routes._save(items)
+
+    track_info = {
+        "name":          name,
+        "artist":        artist,
+        "album":         album.get("name", ""),
+        "all_artists":   all_artists,
+        "album_art_url": art,
+    }
+    queue_routes.LOCAL_TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    ok, msg, local_path = download_audio(
+        youtube_url,
+        str(queue_routes.LOCAL_TEMP_DIR),
+        track_info,
+        fmt=payload.fmt,
+        quality=payload.quality,
+    )
+
+    if not ok or not local_path:
+        item["status"] = QueueStatus.error
+        queue_routes._update_item(items, item)
+        raise HTTPException(500, f"Download failed: {msg}")
+
+    item["local_path"] = local_path
+    item["status"] = QueueStatus.done
+    queue_routes._update_item(items, item)
+    return {"item_id": item["id"], "title": name, "artist": all_artists}
 
 
 @router.get("/download/{job_id}/status")

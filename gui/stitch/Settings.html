@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings - Spotify Sync Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#131313",
+                        "lifted-slate": "#1A1A1A",
+                        "es-yellow": "#FDCB6E",
+                        "tertiary-fixed": "#ffdad9",
+                        "on-tertiary-container": "#760018",
+                        "en-blue": "#74B9FF",
+                        "error-container": "#93000a",
+                        "on-secondary": "#492900",
+                        "primary-container": "#1db954",
+                        "secondary-fixed-dim": "#ffb86a",
+                        "on-secondary-container": "#492900",
+                        "silver-secondary": "#B3B3B3",
+                        "on-tertiary-fixed": "#410009",
+                        "surface-bright": "#3a3939",
+                        "hairline-gray": "#2A2A2A",
+                        "on-surface": "#e5e2e1",
+                        "surface-dim": "#131313",
+                        "secondary-fixed": "#ffdcbc",
+                        "on-tertiary": "#680014",
+                        "surface-container-highest": "#353534",
+                        "primary-fixed-dim": "#53e076",
+                        "on-primary-fixed-variant": "#005320",
+                        "on-secondary-fixed-variant": "#683d00",
+                        "on-background": "#e5e2e1",
+                        "on-secondary-fixed": "#2c1700",
+                        "surface-container": "#201f1f",
+                        "cn-red": "#FF7675",
+                        "charcoal-surface": "#111111",
+                        "surface-tint": "#53e076",
+                        "primary-fixed": "#72fe8f",
+                        "void-black": "#0D0D0D",
+                        "primary": "#53e076",
+                        "on-primary-fixed": "#002108",
+                        "jp-pink": "#FF6B9D",
+                        "fog-muted": "#666666",
+                        "terminal-bg": "#090909",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-primary-container": "#004118",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb3b3",
+                        "inverse-surface": "#e5e2e1",
+                        "on-tertiary-fixed-variant": "#920020",
+                        "inverse-primary": "#006e2d",
+                        "tertiary-container": "#ff767b",
+                        "surface-container-low": "#1c1b1b",
+                        "on-surface-variant": "#bccbb9",
+                        "background": "#131313",
+                        "secondary-container": "#da8500",
+                        "secondary": "#ffb86a",
+                        "inverse-on-surface": "#313030",
+                        "on-primary": "#003914",
+                        "tertiary": "#ffb3b3",
+                        "surface-variant": "#353534",
+                        "on-error": "#690005",
+                        "kr-violet": "#A29BFE",
+                        "error": "#ffb4ab",
+                        "pure-white": "#FFFFFF",
+                        "outline-variant": "#3d4a3d",
+                        "ru-teal": "#55EFC4",
+                        "outline": "#869585",
+                        "hover-ash": "#222222",
+                        "surface-container-high": "#2a2a2a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "16px",
+                        "row-height": "40px",
+                        "base": "8px",
+                        "xl": "24px",
+                        "tight": "4px",
+                        "md": "12px",
+                        "sidebar-width": "60px"
+                    },
+                    "fontFamily": {
+                        "page-title": ["Inter"],
+                        "body-secondary": ["Inter"],
+                        "body-primary": ["Inter"],
+                        "section-heading": ["Inter"],
+                        "terminal-text": ["JetBrains Mono"],
+                        "label-mono": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "page-title": ["17px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-secondary": ["11.5px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-primary": ["13px", {"lineHeight": "1.5", "fontWeight": "500"}],
+                        "section-heading": ["10px", {"lineHeight": "1.5", "letterSpacing": "0.08em", "fontWeight": "700"}],
+                        "terminal-text": ["11.5px", {"lineHeight": "1.75", "fontWeight": "400"}],
+                        "label-mono": ["11px", {"lineHeight": "1.0", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom input styles to match the utilitarian dark theme */
+        input[type="text"], input[type="password"], input[type="number"], select {
+            background-color: theme('colors.lifted-slate');
+            border: 1px solid theme('colors.hairline-gray');
+            color: theme('colors.on-surface');
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+        
+        input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, select:focus {
+            border-color: rgba(29, 185, 84, 0.5); /* Spotify Green with opacity */
+            box-shadow: none;
+        }
+
+        /* Custom range slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: theme('colors.pure-white');
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: theme('colors.hairline-gray');
+            border-radius: 2px;
+        }
+        input[type=range].green-slider::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, theme('colors.primary-container') 85%, theme('colors.hairline-gray') 85%);
+        }
+        input[type=range].orange-slider::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, #F59B23 40%, theme('colors.hairline-gray') 40%);
+        }
+
+        /* Custom Checkbox */
+        input[type="checkbox"] {
+            appearance: none;
+            background-color: transparent;
+            margin: 0;
+            font: inherit;
+            color: currentColor;
+            width: 16px;
+            height: 16px;
+            border: 1px solid theme('colors.silver-secondary');
+            border-radius: 2px;
+            display: grid;
+            place-content: center;
+        }
+        input[type="checkbox"]::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em theme('colors.primary-container');
+            background-color: theme('colors.primary-container');
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        input[type="checkbox"]:checked {
+            border-color: theme('colors.primary-container');
+        }
+        input[type="checkbox"]:checked::before {
+            transform: scale(1);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.hairline-gray');
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-screen w-sidebar-width bg-charcoal-surface dark:bg-charcoal-surface border-r border-hairline-gray flex flex-col items-center py-xl gap-lg z-50">
+<!-- Brand/Avatar area (optional placeholder based on JSON) -->
+<div class="mb-lg w-10 h-10 rounded-full bg-lifted-slate flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-xl">account_circle</span>
+</div>
+<div class="flex flex-col w-full gap-2 px-2 flex-grow">
+<!-- Sync -->
+<button aria-label="Sync" class="w-full h-12 flex items-center justify-center rounded text-silver-secondary hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-xl">sync</span>
+</button>
+<!-- Library -->
+<button aria-label="Library" class="w-full h-12 flex items-center justify-center rounded text-silver-secondary hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-xl">library_music</span>
+</button>
+<!-- Devices -->
+<button aria-label="Devices" class="w-full h-12 flex items-center justify-center rounded text-silver-secondary hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-xl">devices</span>
+</button>
+<!-- Settings (Active) -->
+<button aria-label="Settings" class="w-full h-12 flex items-center justify-center rounded bg-primary/10 text-primary active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-xl fill">settings</span>
+</button>
+<!-- Logs -->
+<button aria-label="Logs" class="w-full h-12 flex items-center justify-center rounded text-silver-secondary hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-xl">terminal</span>
+</button>
+</div>
+<!-- Footer -->
+<div class="mt-auto flex flex-col w-full gap-2 px-2 pb-4">
+<button aria-label="Status" class="w-full h-12 flex items-center justify-center rounded text-silver-secondary hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform relative">
+<span class="material-symbols-outlined text-xl">sensors</span>
+<span class="absolute top-3 right-3 w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+</button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="ml-sidebar-width flex-1 flex flex-col h-screen bg-surface">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-xl h-row-height bg-void-black dark:bg-void-black border-b border-hairline-gray shrink-0">
+<h1 class="font-page-title text-page-title text-pure-white">Settings</h1>
+<div class="flex items-center gap-md">
+<button class="h-[28px] px-md bg-primary-container text-void-black font-body-primary text-body-primary rounded hover:bg-primary transition-colors flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px]">save</span>
+                    Save Changes
+                </button>
+<div class="w-[1px] h-4 bg-hairline-gray mx-tight"></div>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-8 h-8 rounded hover:bg-hover-ash">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content Canvas -->
+<div class="flex-1 overflow-y-auto bg-charcoal-surface">
+<!-- Settings Container (Max Width, Centered) -->
+<div class="max-w-[960px] mx-auto p-[20px] w-full">
+<!-- Two Column Layout -->
+<div class="flex flex-col md:flex-row gap-xl">
+<!-- LEFT COLUMN (CONFIGURATION) -->
+<section class="flex-1 flex flex-col gap-lg">
+<h2 class="font-section-heading text-section-heading text-fog-muted uppercase tracking-[0.08em]">CONFIGURATION</h2>
+<!-- Client ID -->
+<div class="flex flex-col gap-base">
+<label class="font-body-primary text-body-primary text-silver-secondary">Spotify Client ID</label>
+<input class="w-full h-[36px] px-md rounded font-terminal-text text-terminal-text text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" type="text"/>
+</div>
+<!-- Client Secret -->
+<div class="flex flex-col gap-base">
+<label class="font-body-primary text-body-primary text-silver-secondary">Spotify Client Secret</label>
+<div class="relative flex w-full">
+<input class="w-full h-[36px] pl-md pr-[60px] rounded font-terminal-text text-terminal-text text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0" type="password" value="secretkeyhidden123"/>
+<button class="absolute right-1 top-1 bottom-1 px-3 text-silver-secondary hover:text-pure-white bg-transparent hover:bg-hover-ash rounded text-[11px] font-body-secondary transition-colors">Show</button>
+</div>
+</div>
+<!-- ADB Device ID -->
+<div class="flex flex-col gap-base">
+<label class="font-body-primary text-body-primary text-silver-secondary">ADB Device ID</label>
+<div class="flex gap-base">
+<input class="flex-1 h-[36px] px-md rounded font-terminal-text text-terminal-text text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0" type="text" value="FA9B2C3D4E5F"/>
+<button class="h-[36px] px-md bg-lifted-slate border border-hairline-gray text-silver-secondary font-body-secondary text-body-secondary rounded hover:bg-hover-ash hover:text-pure-white transition-colors">Detect</button>
+</div>
+</div>
+<!-- Download Path -->
+<div class="flex flex-col gap-base">
+<label class="font-body-primary text-body-primary text-silver-secondary">Download Path</label>
+<div class="flex gap-base">
+<input class="flex-1 h-[36px] px-md rounded font-terminal-text text-terminal-text text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0 truncate" type="text" value="/Users/omar/Music/Spotify"/>
+<button class="h-[36px] px-md bg-lifted-slate border border-hairline-gray text-silver-secondary font-body-secondary text-body-secondary rounded hover:bg-hover-ash hover:text-pure-white transition-colors">Browse</button>
+</div>
+</div>
+<div class="w-full h-[1px] bg-hairline-gray my-md"></div>
+<!-- Auto-approve threshold -->
+<div class="flex flex-col gap-base">
+<div class="flex justify-between items-center">
+<label class="font-body-primary text-body-primary text-silver-secondary">Auto-approve threshold</label>
+<span class="font-label-mono text-label-mono text-primary-container">85%</span>
+</div>
+<input class="green-slider" max="100" min="0" type="range" value="85"/>
+</div>
+<!-- Min score to show -->
+<div class="flex flex-col gap-base">
+<div class="flex justify-between items-center">
+<label class="font-body-primary text-body-primary text-silver-secondary">Min score to show</label>
+<span class="font-label-mono text-label-mono" style="color: #F59B23;">40%</span>
+</div>
+<input class="orange-slider" max="100" min="0" type="range" value="40"/>
+</div>
+<!-- Max concurrent downloads -->
+<div class="flex items-center justify-between mt-md">
+<label class="font-body-primary text-body-primary text-silver-secondary">Max concurrent downloads</label>
+<input class="w-[80px] h-[36px] px-md rounded font-terminal-text text-terminal-text text-center text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0" max="10" min="1" type="number" value="3"/>
+</div>
+</section>
+<!-- RIGHT COLUMN (FILTERS & BLACKLIST) -->
+<section class="flex-1 flex flex-col gap-lg">
+<h2 class="font-section-heading text-section-heading text-fog-muted uppercase tracking-[0.08em]">FILTERS &amp; BLACKLIST</h2>
+<!-- Artist Blacklist -->
+<div class="flex flex-col gap-base">
+<label class="font-body-primary text-body-primary text-silver-secondary">Artist Blacklist</label>
+<div class="flex flex-wrap gap-2 p-3 bg-lifted-slate border border-hairline-gray rounded min-h-[100px] items-start content-start">
+<!-- Chips -->
+<div class="flex items-center gap-1 bg-charcoal-surface border border-hairline-gray rounded-full px-3 py-1">
+<span class="font-body-secondary text-[11px] text-pure-white">Piko</span>
+<button class="text-silver-secondary hover:text-cn-red flex items-center"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<div class="flex items-center gap-1 bg-charcoal-surface border border-hairline-gray rounded-full px-3 py-1">
+<span class="font-body-secondary text-[11px] text-pure-white">samfree</span>
+<button class="text-silver-secondary hover:text-cn-red flex items-center"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<div class="flex items-center gap-1 bg-charcoal-surface border border-hairline-gray rounded-full px-3 py-1">
+<span class="font-body-secondary text-[11px] text-pure-white">40mP</span>
+<button class="text-silver-secondary hover:text-cn-red flex items-center"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<div class="flex items-center gap-1 bg-charcoal-surface border border-hairline-gray rounded-full px-3 py-1">
+<span class="font-body-secondary text-[11px] text-pure-white">ryo</span>
+<button class="text-silver-secondary hover:text-cn-red flex items-center"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<div class="flex items-center gap-1 bg-charcoal-surface border border-hairline-gray rounded-full px-3 py-1">
+<span class="font-body-secondary text-[11px] text-pure-white">baker</span>
+<button class="text-silver-secondary hover:text-cn-red flex items-center"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+<div class="flex items-center gap-1 bg-charcoal-surface border border-hairline-gray rounded-full px-3 py-1">
+<span class="font-body-secondary text-[11px] text-pure-white">yuikonnu</span>
+<button class="text-silver-secondary hover:text-cn-red flex items-center"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</div>
+</div>
+<!-- Add Artist Input -->
+<div class="flex gap-base mt-2">
+<input class="flex-1 h-[36px] px-md rounded font-body-secondary text-body-secondary text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0" placeholder="Add artist..." type="text"/>
+<button class="h-[36px] px-md bg-primary-container/10 text-primary-container font-body-primary text-body-primary rounded hover:bg-primary-container/20 transition-colors">Add</button>
+</div>
+</div>
+<div class="w-full h-[1px] bg-hairline-gray my-2"></div>
+<!-- Language Filter -->
+<div class="flex flex-col gap-tight">
+<label class="font-body-primary text-body-primary text-silver-secondary mb-2">Language Filter</label>
+<!-- Rows -->
+<div class="flex items-center justify-between py-2 border-b border-hairline-gray/50 hover:bg-hover-ash transition-colors px-2 -mx-2 rounded">
+<span class="font-body-secondary text-body-secondary text-pure-white">Japanese (JP)</span>
+<input checked="" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between py-2 border-b border-hairline-gray/50 hover:bg-hover-ash transition-colors px-2 -mx-2 rounded">
+<span class="font-body-secondary text-body-secondary text-pure-white">Korean (KR)</span>
+<input checked="" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between py-2 border-b border-hairline-gray/50 hover:bg-hover-ash transition-colors px-2 -mx-2 rounded">
+<span class="font-body-secondary text-body-secondary text-pure-white">English (EN)</span>
+<input checked="" type="checkbox"/>
+</div>
+<div class="flex items-center justify-between py-2 border-b border-hairline-gray/50 hover:bg-hover-ash transition-colors px-2 -mx-2 rounded">
+<span class="font-body-secondary text-body-secondary text-silver-secondary">Spanish (ES)</span>
+<input type="checkbox"/>
+</div>
+<div class="flex items-center justify-between py-2 border-b border-hairline-gray/50 hover:bg-hover-ash transition-colors px-2 -mx-2 rounded">
+<span class="font-body-secondary text-body-secondary text-silver-secondary">Chinese (CN)</span>
+<input type="checkbox"/>
+</div>
+<div class="flex items-center justify-between py-2 hover:bg-hover-ash transition-colors px-2 -mx-2 rounded">
+<span class="font-body-secondary text-body-secondary text-silver-secondary">Russian (RU)</span>
+<input type="checkbox"/>
+</div>
+</div>
+<div class="w-full h-[1px] bg-hairline-gray my-2"></div>
+<!-- Video Quality -->
+<div class="flex items-center justify-between">
+<label class="font-body-primary text-body-primary text-silver-secondary">Preferred video quality</label>
+<select class="w-[120px] h-[36px] px-md rounded font-terminal-text text-terminal-text text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0 appearance-none cursor-pointer">
+<option>1080p</option>
+<option selected="">720p</option>
+<option>480p</option>
+<option>Audio Only</option>
+</select>
+</div>
+<!-- Search results -->
+<div class="flex items-center justify-between mt-2">
+<label class="font-body-primary text-body-primary text-silver-secondary">Search results per query</label>
+<input class="w-[80px] h-[36px] px-md rounded font-terminal-text text-terminal-text text-center text-on-surface bg-lifted-slate border-hairline-gray focus:border-primary-container focus:ring-0" max="20" min="1" type="number" value="5"/>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -231,7 +231,9 @@ def smart_compare(playlist_id, start_offset=0, max_tracks=None, skip_japanese=Fa
     if sys.platform == 'win32':
         sys.stdout.reconfigure(encoding='utf-8')
 
-    open_live_log_window(COMPARE_LOG_PATH)
+    COMPARE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if sys.stdout.isatty():
+        open_live_log_window(COMPARE_LOG_PATH)
     sys.stdout = TeeLogger(COMPARE_LOG_PATH)
 
     spotify = SpotifyClient(config['spotify_client_id'], config['spotify_client_secret'])
@@ -306,6 +308,7 @@ def smart_compare(playlist_id, start_offset=0, max_tracks=None, skip_japanese=Fa
     
     # Report generation
     report_path = os.path.join(os.path.dirname(__file__), '..', 'reports', 'informe_inteligente.txt')
+    Path(report_path).parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(f"INFORME DE SINCRONIZACIÓN INTELIGENTE\n")
         f.write(f"=====================================\n")

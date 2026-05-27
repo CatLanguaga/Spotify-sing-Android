@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Download Queue - Spotify Sync Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary-fixed": "#72fe8f",
+                        "on-primary-fixed-variant": "#005320",
+                        "primary-fixed-dim": "#53e076",
+                        "surface-container": "#201f1f",
+                        "en-blue": "#74B9FF",
+                        "on-tertiary-fixed-variant": "#920020",
+                        "on-primary-fixed": "#002108",
+                        "primary-container": "#1db954",
+                        "on-secondary-fixed-variant": "#683d00",
+                        "secondary-fixed": "#ffdcbc",
+                        "tertiary-fixed-dim": "#ffb3b3",
+                        "secondary": "#ffb86a",
+                        "cn-red": "#FF7675",
+                        "surface": "#131313",
+                        "on-tertiary": "#680014",
+                        "tertiary-fixed": "#ffdad9",
+                        "jp-pink": "#FF6B9D",
+                        "inverse-surface": "#e5e2e1",
+                        "silver-secondary": "#B3B3B3",
+                        "primary": "#53e076",
+                        "tertiary": "#ffb3b3",
+                        "surface-bright": "#3a3939",
+                        "surface-dim": "#131313",
+                        "on-tertiary-fixed": "#410009",
+                        "charcoal-surface": "#111111",
+                        "void-black": "#0D0D0D",
+                        "secondary-fixed-dim": "#ffb86a",
+                        "on-surface": "#e5e2e1",
+                        "es-yellow": "#FDCB6E",
+                        "pure-white": "#FFFFFF",
+                        "on-secondary-fixed": "#2c1700",
+                        "surface-variant": "#353534",
+                        "on-tertiary-container": "#760018",
+                        "inverse-primary": "#006e2d",
+                        "error-container": "#93000a",
+                        "background": "#131313",
+                        "surface-container-highest": "#353534",
+                        "hairline-gray": "#2A2A2A",
+                        "on-surface-variant": "#bccbb9",
+                        "fog-muted": "#666666",
+                        "ru-teal": "#55EFC4",
+                        "terminal-bg": "#090909",
+                        "on-primary": "#003914",
+                        "on-secondary": "#492900",
+                        "on-error": "#690005",
+                        "surface-container-high": "#2a2a2a",
+                        "on-error-container": "#ffdad6",
+                        "lifted-slate": "#1A1A1A",
+                        "on-primary-container": "#004118",
+                        "outline-variant": "#3d4a3d",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-tint": "#53e076",
+                        "surface-container-low": "#1c1b1b",
+                        "on-secondary-container": "#492900",
+                        "secondary-container": "#da8500",
+                        "on-background": "#e5e2e1",
+                        "error": "#ffb4ab",
+                        "kr-violet": "#A29BFE",
+                        "hover-ash": "#222222",
+                        "tertiary-container": "#ff767b",
+                        "outline": "#869585",
+                        "inverse-on-surface": "#313030"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "xl": "24px",
+                        "tight": "4px",
+                        "md": "12px",
+                        "lg": "16px",
+                        "sidebar-width": "60px",
+                        "row-height": "40px",
+                        "base": "8px"
+                    },
+                    fontFamily: {
+                        "label-mono": ["JetBrains Mono"],
+                        "body-secondary": ["Inter"],
+                        "terminal-text": ["JetBrains Mono"],
+                        "section-heading": ["Inter"],
+                        "page-title": ["Inter"],
+                        "body-primary": ["Inter"]
+                    },
+                    fontSize: {
+                        "label-mono": ["11px", { lineHeight: "1.0", fontWeight: "600" }],
+                        "body-secondary": ["11.5px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "terminal-text": ["11.5px", { lineHeight: "1.75", fontWeight: "400" }],
+                        "section-heading": ["10px", { lineHeight: "1.5", letterSpacing: "0.08em", fontWeight: "700" }],
+                        "page-title": ["17px", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-primary": ["13px", { lineHeight: "1.5", fontWeight: "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #2A2A2A;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-void-black text-on-surface font-body-primary min-h-screen flex overflow-hidden selection:bg-primary/30 selection:text-primary">
+<!-- SideNavBar -->
+<nav class="bg-charcoal-surface border-r border-hairline-gray fixed left-0 top-0 h-full w-sidebar-width flex flex-col items-center py-md z-50">
+<div class="flex-1 flex flex-col gap-xl w-full px-base items-center">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform" title="Home">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">home</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform" title="Sync">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">sync</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary border-l-2 border-primary active:scale-95 transition-transform" title="Queue">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">queue_music</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform" title="Devices">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">stay_current_portrait</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors duration-100 active:scale-95 transition-transform" title="Settings">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+</button>
+</div>
+<div class="mt-auto mb-4 relative flex items-center justify-center w-full" title="ADB Status">
+<span class="material-symbols-outlined text-silver-secondary hover:text-on-surface transition-colors cursor-pointer" style="font-variation-settings: 'FILL' 0;">terminal</span>
+<span class="absolute bottom-0 right-3 w-2 h-2 bg-primary rounded-full animate-pulse border border-charcoal-surface"></span>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-sidebar-width flex-1 bg-charcoal-surface flex flex-col h-screen relative">
+<!-- Header area -->
+<header class="h-[72px] shrink-0 border-b border-hairline-gray flex items-center justify-between px-xl bg-void-black">
+<h1 class="font-page-title text-page-title text-pure-white">Download Queue</h1>
+<div class="flex items-center gap-md">
+<button class="font-body-primary text-body-primary px-lg py-2 rounded-lg bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px]">done_all</span>
+                    Approve All
+                </button>
+<button class="font-body-primary text-body-primary px-lg py-2 rounded-lg bg-primary text-void-black font-bold hover:bg-primary-fixed transition-colors flex items-center gap-tight">
+<span class="material-symbols-outlined text-[16px]">download</span>
+                    Download Selected (12)
+                </button>
+</div>
+</header>
+<!-- Filter Tabs -->
+<div class="px-xl pt-lg pb-md border-b border-hairline-gray flex gap-xl bg-charcoal-surface shrink-0">
+<button class="text-silver-secondary hover:text-on-surface font-body-primary text-body-primary pb-2 transition-colors">All (28)</button>
+<button class="text-silver-secondary hover:text-on-surface font-body-primary text-body-primary pb-2 transition-colors">Pending (14)</button>
+<button class="text-pure-white font-body-primary text-body-primary pb-2 border-b-2 border-primary transition-colors font-bold">Approved (12)</button>
+<button class="text-silver-secondary hover:text-on-surface font-body-primary text-body-primary pb-2 transition-colors">Rejected (2)</button>
+</div>
+<!-- Queue List -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-xl bg-charcoal-surface">
+<div class="flex flex-col gap-[6px] max-w-5xl mx-auto pb-24">
+<!-- Item 1 (Approved) -->
+<div class="bg-lifted-slate rounded-xl p-md border border-primary/20 relative overflow-hidden flex items-center gap-lg group hover:bg-hover-ash transition-colors duration-100">
+<div class="absolute top-0 left-0 w-full h-[2px] bg-primary"></div>
+<div class="w-12 h-12 rounded bg-surface-container shrink-0 border border-hairline-gray overflow-hidden">
+<div class="w-full h-full bg-gradient-to-br from-jp-pink/20 to-void-black flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary opacity-50">music_note</span>
+</div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-base">
+<span class="font-body-primary text-[13px] text-pure-white font-semibold truncate">夜に駆ける</span>
+<span class="px-2 py-0.5 rounded bg-jp-pink/10 text-jp-pink font-label-mono text-label-mono">JP</span>
+</div>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate mt-0.5">YOASOBI</span>
+</div>
+<div class="flex items-center gap-xl shrink-0">
+<div class="flex flex-col items-end">
+<span class="font-label-mono text-[10px] text-silver-secondary">MATCH</span>
+<span class="font-label-mono text-[14px] text-primary">97%</span>
+</div>
+<div class="flex items-center gap-base">
+<button class="h-8 px-md rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">check</span> Aprobar
+                            </button>
+<button class="h-8 px-md rounded bg-cn-red/10 text-cn-red border border-cn-red/20 hover:bg-cn-red/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">close</span> Rechazar
+                            </button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-hairline-gray text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors" title="Buscar Alt">
+<span class="material-symbols-outlined text-[16px]">search</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 2 (Approved) -->
+<div class="bg-lifted-slate rounded-xl p-md border border-primary/20 relative overflow-hidden flex items-center gap-lg group hover:bg-hover-ash transition-colors duration-100">
+<div class="absolute top-0 left-0 w-full h-[2px] bg-primary"></div>
+<div class="w-12 h-12 rounded bg-surface-container shrink-0 border border-hairline-gray overflow-hidden">
+<div class="w-full h-full bg-gradient-to-br from-kr-violet/20 to-void-black flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary opacity-50">music_note</span>
+</div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-base">
+<span class="font-body-primary text-[13px] text-pure-white font-semibold truncate">Dynamite</span>
+<span class="px-2 py-0.5 rounded bg-kr-violet/10 text-kr-violet font-label-mono text-label-mono">KR</span>
+</div>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate mt-0.5">BTS</span>
+</div>
+<div class="flex items-center gap-xl shrink-0">
+<div class="flex flex-col items-end">
+<span class="font-label-mono text-[10px] text-silver-secondary">MATCH</span>
+<span class="font-label-mono text-[14px] text-primary">91%</span>
+</div>
+<div class="flex items-center gap-base">
+<button class="h-8 px-md rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">check</span> Aprobar
+                            </button>
+<button class="h-8 px-md rounded bg-cn-red/10 text-cn-red border border-cn-red/20 hover:bg-cn-red/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">close</span> Rechazar
+                            </button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-hairline-gray text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors" title="Buscar Alt">
+<span class="material-symbols-outlined text-[16px]">search</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 3 (Pending) -->
+<div class="bg-lifted-slate rounded-xl p-md border border-hairline-gray relative overflow-hidden flex items-center gap-lg group hover:bg-hover-ash transition-colors duration-100">
+<div class="w-12 h-12 rounded bg-surface-container shrink-0 border border-hairline-gray overflow-hidden">
+<div class="w-full h-full bg-gradient-to-br from-kr-violet/20 to-void-black flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary opacity-50">music_note</span>
+</div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-base">
+<span class="font-body-primary text-[13px] text-pure-white font-semibold truncate">Butter</span>
+<span class="px-2 py-0.5 rounded bg-kr-violet/10 text-kr-violet font-label-mono text-label-mono">KR</span>
+</div>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate mt-0.5">BTS</span>
+</div>
+<div class="flex items-center gap-xl shrink-0">
+<div class="flex flex-col items-end">
+<span class="font-label-mono text-[10px] text-silver-secondary">MATCH</span>
+<span class="font-label-mono text-[14px] text-es-yellow">73%</span>
+</div>
+<div class="flex items-center gap-base">
+<button class="h-8 px-md rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">check</span> Aprobar
+                            </button>
+<button class="h-8 px-md rounded bg-cn-red/10 text-cn-red border border-cn-red/20 hover:bg-cn-red/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">close</span> Rechazar
+                            </button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-hairline-gray text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors" title="Buscar Alt">
+<span class="material-symbols-outlined text-[16px]">search</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 4 (Pending) -->
+<div class="bg-lifted-slate rounded-xl p-md border border-hairline-gray relative overflow-hidden flex items-center gap-lg group hover:bg-hover-ash transition-colors duration-100">
+<div class="w-12 h-12 rounded bg-surface-container shrink-0 border border-hairline-gray overflow-hidden">
+<div class="w-full h-full bg-gradient-to-br from-jp-pink/20 to-void-black flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary opacity-50">music_note</span>
+</div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-base">
+<span class="font-body-primary text-[13px] text-pure-white font-semibold truncate">Stay With Me</span>
+<span class="px-2 py-0.5 rounded bg-jp-pink/10 text-jp-pink font-label-mono text-label-mono">JP</span>
+</div>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate mt-0.5">Miki Matsubara</span>
+</div>
+<div class="flex items-center gap-xl shrink-0">
+<div class="flex flex-col items-end">
+<span class="font-label-mono text-[10px] text-silver-secondary">MATCH</span>
+<span class="font-label-mono text-[14px] text-es-yellow">68%</span>
+</div>
+<div class="flex items-center gap-base">
+<button class="h-8 px-md rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">check</span> Aprobar
+                            </button>
+<button class="h-8 px-md rounded bg-cn-red/10 text-cn-red border border-cn-red/20 hover:bg-cn-red/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">close</span> Rechazar
+                            </button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-hairline-gray text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors" title="Buscar Alt">
+<span class="material-symbols-outlined text-[16px]">search</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 5 (Rejected) -->
+<div class="bg-lifted-slate rounded-xl p-md border border-cn-red/20 opacity-45 relative overflow-hidden flex items-center gap-lg group hover:bg-hover-ash transition-colors duration-100">
+<div class="w-12 h-12 rounded bg-surface-container shrink-0 border border-hairline-gray overflow-hidden grayscale">
+<div class="w-full h-full bg-gradient-to-br from-en-blue/20 to-void-black flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary opacity-50">music_note</span>
+</div>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<div class="flex items-center gap-base">
+<span class="font-body-primary text-[13px] text-pure-white font-semibold truncate line-through">Some English Track</span>
+<span class="px-2 py-0.5 rounded bg-en-blue/10 text-en-blue font-label-mono text-label-mono">EN</span>
+</div>
+<span class="font-body-secondary text-body-secondary text-silver-secondary truncate mt-0.5">Unknown Artist</span>
+</div>
+<div class="flex items-center gap-xl shrink-0">
+<div class="flex flex-col items-end">
+<span class="font-label-mono text-[10px] text-silver-secondary">MATCH</span>
+<span class="font-label-mono text-[14px] text-cn-red">42%</span>
+</div>
+<div class="flex items-center gap-base">
+<button class="h-8 px-md rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">check</span> Aprobar
+                            </button>
+<button class="h-8 px-md rounded bg-cn-red/10 text-cn-red border border-cn-red/20 hover:bg-cn-red/20 transition-colors font-body-secondary text-body-secondary flex items-center gap-tight">
+<span class="material-symbols-outlined text-[14px]">close</span> Rechazar
+                            </button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-hairline-gray text-silver-secondary hover:text-on-surface hover:bg-hover-ash transition-colors" title="Buscar Alt">
+<span class="material-symbols-outlined text-[16px]">search</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Overlay (YouTube Search Modal) -->
+<!-- Hidden by default, displayed for styling demonstration -->
+<div class="fixed inset-0 bg-black/70 backdrop-blur-[6px] z-[100] flex items-center justify-center p-xl">
+<div class="w-full max-w-[480px] bg-charcoal-surface rounded-[12px] border border-[#333333] shadow-[0_32px_96px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden">
+<!-- Modal Header -->
+<div class="h-[56px] px-lg flex items-center justify-between border-b border-hairline-gray bg-charcoal-surface shrink-0">
+<h2 class="font-body-primary text-[15px] font-bold text-pure-white">Search YouTube</h2>
+<button class="w-8 h-8 flex items-center justify-center text-silver-secondary hover:text-on-surface rounded transition-colors">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Search Input -->
+<div class="p-lg border-b border-hairline-gray bg-void-black shrink-0">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-md text-silver-secondary text-[18px]">search</span>
+<input class="w-full h-10 bg-lifted-slate border border-hairline-gray rounded-[5px] pl-[36px] pr-md text-pure-white font-body-secondary text-body-secondary focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all placeholder-fog-muted" placeholder="Search..." type="text" value="夜に駆ける YOASOBI"/>
+</div>
+</div>
+<!-- Results List -->
+<div class="max-h-[400px] overflow-y-auto custom-scrollbar p-base flex flex-col gap-base bg-charcoal-surface">
+<!-- Result 1 -->
+<div class="flex items-center gap-md p-base rounded-lg hover:bg-hover-ash transition-colors group">
+<div class="w-[90px] h-[60px] rounded bg-surface-variant shrink-0 border border-hairline-gray relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-jp-pink/30 to-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary/50 text-[24px]">play_circle</span>
+</div>
+<span class="absolute bottom-1 right-1 bg-black/80 px-1 rounded font-label-mono text-[9px] text-pure-white">4:21</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<span class="font-body-primary text-[13px] text-pure-white truncate group-hover:text-primary transition-colors">YOASOBI「夜に駆ける」 Official Music Video</span>
+<span class="font-body-secondary text-[11px] text-silver-secondary truncate mt-0.5">Ayase / YOASOBI</span>
+</div>
+<button class="shrink-0 h-8 px-md rounded border border-hairline-gray text-pure-white font-body-secondary text-[11.5px] hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-colors ml-md">
+                        Select
+                    </button>
+</div>
+<!-- Result 2 -->
+<div class="flex items-center gap-md p-base rounded-lg hover:bg-hover-ash transition-colors group">
+<div class="w-[90px] h-[60px] rounded bg-surface-variant shrink-0 border border-hairline-gray relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright to-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary/50 text-[24px]">play_circle</span>
+</div>
+<span class="absolute bottom-1 right-1 bg-black/80 px-1 rounded font-label-mono text-[9px] text-pure-white">4:18</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<span class="font-body-primary text-[13px] text-pure-white truncate group-hover:text-primary transition-colors">Yoru ni Kakeru (Racing into the Night)</span>
+<span class="font-body-secondary text-[11px] text-silver-secondary truncate mt-0.5">THE FIRST TAKE</span>
+</div>
+<button class="shrink-0 h-8 px-md rounded border border-hairline-gray text-pure-white font-body-secondary text-[11.5px] hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-colors ml-md">
+                        Select
+                    </button>
+</div>
+<!-- Result 3 -->
+<div class="flex items-center gap-md p-base rounded-lg hover:bg-hover-ash transition-colors group">
+<div class="w-[90px] h-[60px] rounded bg-surface-variant shrink-0 border border-hairline-gray relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary/50 text-[24px]">play_circle</span>
+</div>
+<span class="absolute bottom-1 right-1 bg-black/80 px-1 rounded font-label-mono text-[9px] text-pure-white">4:25</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<span class="font-body-primary text-[13px] text-pure-white truncate group-hover:text-primary transition-colors">YOASOBI - 夜に駆ける (Yoru ni kakeru) Lyrics</span>
+<span class="font-body-secondary text-[11px] text-silver-secondary truncate mt-0.5">Anime Lyrics</span>
+</div>
+<button class="shrink-0 h-8 px-md rounded border border-hairline-gray text-pure-white font-body-secondary text-[11.5px] hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-colors ml-md">
+                        Select
+                    </button>
+</div>
+<!-- Result 4 -->
+<div class="flex items-center gap-md p-base rounded-lg hover:bg-hover-ash transition-colors group">
+<div class="w-[90px] h-[60px] rounded bg-surface-variant shrink-0 border border-hairline-gray relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright to-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-silver-secondary/50 text-[24px]">play_circle</span>
+</div>
+<span class="absolute bottom-1 right-1 bg-black/80 px-1 rounded font-label-mono text-[9px] text-pure-white">4:20</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-center">
+<span class="font-body-primary text-[13px] text-pure-white truncate group-hover:text-primary transition-colors">夜に駆ける (Yoru ni Kakeru) - English Cover</span>
+<span class="font-body-secondary text-[11px] text-silver-secondary truncate mt-0.5">Cover Artist</span>
+</div>
+<button class="shrink-0 h-8 px-md rounded border border-hairline-gray text-pure-white font-body-secondary text-[11.5px] hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-colors ml-md">
+                        Select
+                    </button>
+</div>
+</div>
+<div class="p-md border-t border-hairline-gray bg-void-black shrink-0 flex justify-end">
+<button class="h-8 px-lg rounded bg-lifted-slate text-silver-secondary border border-hairline-gray hover:text-pure-white transition-colors font-body-secondary text-body-secondary">
+                    Cancel
+                </button>
+</div>
+</div>
+</div>
+</body></html>

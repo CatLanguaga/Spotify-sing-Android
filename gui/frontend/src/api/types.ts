@@ -38,7 +38,26 @@ export interface SpotifyConfig {
   default_quality: number
 }
 
-export interface ScriptInfo {
+export type ResolvedKind = 'track' | 'album' | 'playlist'
+
+export interface ResolvedInfo {
   name: string
-  path: string
+  owner?: string
+  image_url?: string | null
+  total_tracks?: number
+}
+
+export interface ResolvedPayload {
+  kind: ResolvedKind
+  info: ResolvedInfo
+  tracks: SpotifyTrack[]
+  total: number
+  returned: number
+  offset: number
+}
+
+export interface TrackDownloadResponse {
+  item_id: string
+  title: string
+  artist: string
 }

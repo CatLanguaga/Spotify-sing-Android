@@ -62,6 +62,9 @@ def run_script(body: ScriptRun):
             cwd=str(_ROOT),
             creationflags=_NO_WINDOW,
         )
+        if result.returncode != 0:
+            tail = (result.stderr or result.stdout or "").strip()[-500:]
+            raise HTTPException(500, f'{body.script} exit {result.returncode}: {tail}')
         return {
             "returncode": result.returncode,
             "stdout": result.stdout[-3000:],
