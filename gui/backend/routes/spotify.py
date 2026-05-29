@@ -1,5 +1,6 @@
 import re
 import sys
+from time import monotonic
 from pathlib import Path
 from typing import Optional
 
@@ -7,13 +8,14 @@ from fastapi import APIRouter, HTTPException, Query
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from src.config import ConfigManager
+from src.config import ConfigManager, MAX_TRACKS_PER_REQUEST
 from src.spotify_client import SpotifyClient
 
 router = APIRouter(tags=["spotify"])
 _mgr = ConfigManager()
 
-MAX_TRACKS_PER_REQUEST = 50
+_PLAYLIST_INFO_TTL_SECONDS = 600
+_PLAYLIST_INFO_CACHE: dict[str, tuple[float, dict]] = {}
 _SPOTIFY_URL_RE = re.compile(
     r"open\.spotify\.com/(?:intl-[a-z]+/)?(track|album|playlist)/([A-Za-z0-9]+)"
 )
@@ -31,6 +33,28 @@ def _get_client() -> SpotifyClient:
     if not cfg or not cfg.get("spotify_client_id"):
         raise HTTPException(400, "Spotify credentials not configured. Call POST /api/config first.")
     return SpotifyClient(cfg["spotify_client_id"], cfg["spotify_client_secret"])
+
+
+def _clamp_limit(limit: int) -> int:
+    return max(1, min(limit, MAX_TRACKS_PER_REQUEST))
+
+
+def _get_playlist_info_cached(client: SpotifyClient, playlist_id: str) -> dict:
+    now = monotonic()
+    cached = _PLAYLIST_INFO_CACHE.get(playlist_id)
+    if cached and now - cached[0] < _PLAYLIST_INFO_TTL_SECONDS:
+        return cached[1]
+
+    info = client.get_playlist_info(playlist_id) or {}
+    _PLAYLIST_INFO_CACHE[playlist_id] = (now, info)
+    return info
+
+
+def _detect_track_language(client: SpotifyClient, track_name: str, album_name: str, artists: str) -> str:
+    detector = getattr(client, "_detect_language_smart", None)
+    if not detector:
+        return "Other"
+    return detector(track_name, album_name, artists)
 
 
 @router.get("/spotify/playlist/{playlist_id}")
@@ -76,7 +100,7 @@ def search_track(
 def resolve_url(
     url: str = Query(..., description="Spotify track / album / playlist URL"),
     offset: int = Query(0, ge=0),
-    limit: int = Query(MAX_TRACKS_PER_REQUEST, ge=1, le=MAX_TRACKS_PER_REQUEST),
+    limit: int = Query(MAX_TRACKS_PER_REQUEST, ge=1),
 ):
     """Unified resolver. Returns kind + info + tracks (paginated for playlists)."""
     parsed = _parse_url(url)
@@ -86,10 +110,14 @@ def resolve_url(
     client = _get_client()
     kind = parsed["kind"]
     sid = parsed["id"]
+    limit = _clamp_limit(limit)
 
     if kind == "playlist":
-        info = client.get_playlist_info(sid) or {}
-        tracks = client.get_playlist_tracks(sid, offset=offset, limit=limit) or []
+        info = _get_playlist_info_cached(client, sid)
+        tracks = client.get_playlist_tracks(sid, offset=offset, limit=limit)
+        if not info and tracks is None:
+            raise HTTPException(502, "Spotify playlist lookup failed. Check that the playlist is public and available.")
+        tracks = tracks or []
         total = info.get("total_tracks") or info.get("total") or len(tracks) + offset
         return {
             "kind": "playlist",
@@ -104,17 +132,21 @@ def resolve_url(
         raise HTTPException(500, "Spotify auth failed")
 
     if kind == "track":
-        t = client.sp.track(sid)
+        try:
+            t = client.sp.track(sid)
+        except Exception as exc:
+            raise HTTPException(502, f"Spotify track lookup failed: {exc}") from exc
         album = t.get("album", {}) or {}
         art = album.get("images", [{}])[0].get("url") if album.get("images") else None
+        all_artists = ", ".join(a["name"] for a in t["artists"])
         track = {
             "name":          t["name"],
             "artist":        t["artists"][0]["name"] if t["artists"] else "Unknown",
-            "all_artists":   ", ".join(a["name"] for a in t["artists"]),
+            "all_artists":   all_artists,
             "duration_ms":   t.get("duration_ms", 0),
             "album":         album.get("name", ""),
             "album_art_url": art,
-            "language":      "Other",
+            "language":      _detect_track_language(client, t["name"], album.get("name", ""), all_artists),
             "spotify_id":    t.get("id", ""),
             "year":          (album.get("release_date") or "")[:4],
             "track_number":  t.get("track_number", 1),
@@ -132,18 +164,22 @@ def resolve_url(
         }
 
     # album
-    album = client.sp.album(sid)
+    try:
+        album = client.sp.album(sid)
+    except Exception as exc:
+        raise HTTPException(502, f"Spotify album lookup failed: {exc}") from exc
     art = album["images"][0]["url"] if album.get("images") else None
     tracks = []
     for t in album["tracks"]["items"]:
+        all_artists = ", ".join(a["name"] for a in t["artists"])
         tracks.append({
             "name":          t["name"],
             "artist":        t["artists"][0]["name"] if t["artists"] else "Unknown",
-            "all_artists":   ", ".join(a["name"] for a in t["artists"]),
+            "all_artists":   all_artists,
             "duration_ms":   t.get("duration_ms", 0),
             "album":         album.get("name", ""),
             "album_art_url": art,
-            "language":      "Other",
+            "language":      _detect_track_language(client, t["name"], album.get("name", ""), all_artists),
             "spotify_id":    t.get("id", ""),
             "year":          (album.get("release_date") or "")[:4],
             "track_number":  t.get("track_number", 1),

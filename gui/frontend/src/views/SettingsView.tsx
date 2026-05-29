@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { api, fetcher } from '../api/client'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toast-context'
 
 export function SettingsView() {
   const { data: cfg, isLoading, error, mutate } = useSWR<Record<string, unknown>>('/config', fetcher)
@@ -123,6 +123,50 @@ export function SettingsView() {
           </button>
         </div>
       </div>
+
+      <section className="settings-help" aria-label="Guia para crear una Spotify App">
+        <div className="help-head">
+          <div>
+            <span className="kicker">Spotify App</span>
+            <h2>Configura tus credenciales</h2>
+          </div>
+          <a className="btn btn-ghost sm" href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">
+            Abrir dashboard
+          </a>
+        </div>
+
+        <div className="help-steps">
+          <div className="help-step">
+            <span>1</span>
+            <div>
+              <h3>Crea la app</h3>
+              <p>En el dashboard de Spotify, usa Create app y ponle cualquier nombre interno.</p>
+            </div>
+          </div>
+          <div className="help-step">
+            <span>2</span>
+            <div>
+              <h3>Copia las llaves</h3>
+              <p>Abre Settings y pega Client ID y Client Secret en los campos de arriba.</p>
+            </div>
+          </div>
+          <div className="help-step">
+            <span>3</span>
+            <div>
+              <h3>Verifica acceso</h3>
+              <p>Guarda cambios y usa Verificar credenciales antes de buscar playlists.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="redirect-box">
+          <div>
+            <strong>Redirect URI</strong>
+            <p>Si Spotify te pide una URL de redireccionamiento, agrega esta para desarrollo local.</p>
+          </div>
+          <code>http://localhost:8000</code>
+        </div>
+      </section>
 
       <p style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 24, textAlign: 'center' }}>
         Backend: <code style={{ fontFamily: 'var(--font-mono)' }}>localhost:8000</code> ·{' '}

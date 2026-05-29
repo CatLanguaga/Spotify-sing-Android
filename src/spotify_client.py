@@ -3,12 +3,18 @@ Spotify API client for fetching playlist tracks with full metadata
 Improved language detection based on artist and all available text
 """
 import spotipy
+import requests
 from spotipy.oauth2 import SpotifyClientCredentials
 
 
 # Known Japanese/Korean labels and keywords
 JAPANESE_LABELS = ['sony music japan', 'avex', 'lantis', 'aniplex', 'king records', 'victor', 'pony canyon', 'bushiroad']
 KOREAN_LABELS = ['sm entertainment', 'jyp', 'yg entertainment', 'hybe', 'kakao', 'starship']
+SPANISH_HINTS = {
+    'amor', 'baila', 'bailando', 'beso', 'cancion', 'corazon', 'contigo',
+    'de', 'del', 'el', 'ella', 'eres', 'esta', 'la', 'las', 'lo', 'los',
+    'mi', 'noche', 'para', 'por', 'que', 'sin', 'te', 'tu', 'vida', 'yo',
+}
 
 
 class SpotifyClient:
@@ -19,11 +25,14 @@ class SpotifyClient:
         
     def authenticate(self):
         try:
+            session = requests.Session()
+            session.trust_env = False
             auth_manager = SpotifyClientCredentials(
                 client_id=self.client_id,
-                client_secret=self.client_secret
+                client_secret=self.client_secret,
+                requests_session=session,
             )
-            self.sp = spotipy.Spotify(auth_manager=auth_manager)
+            self.sp = spotipy.Spotify(auth_manager=auth_manager, requests_session=session)
             return True
         except Exception as e:
             print(f"Spotify authentication error: {e}")
@@ -167,7 +176,20 @@ class SpotifyClient:
         
         # Default to Latin-based
         if counts['latin'] > 0:
-            return 'English/Spanish'
+            text_lower = all_text.lower()
+            normalized = (
+                text_lower
+                .replace('á', 'a')
+                .replace('é', 'e')
+                .replace('í', 'i')
+                .replace('ó', 'o')
+                .replace('ú', 'u')
+                .replace('ü', 'u')
+            )
+            words = set(normalized.replace('-', ' ').replace('/', ' ').split())
+            if 'ñ' in text_lower or any(word in SPANISH_HINTS for word in words):
+                return 'Spanish'
+            return 'English'
         
         return 'Other'
     

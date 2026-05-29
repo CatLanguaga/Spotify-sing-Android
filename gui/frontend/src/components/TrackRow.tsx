@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { api } from '../api/client'
+import { API_BASE, api } from '../api/client'
 import type { SpotifyTrack, TrackDownloadResponse } from '../api/types'
+import { useToast } from './toast-context'
 
 type State = 'idle' | 'downloading' | 'done' | 'error'
 
@@ -12,8 +13,6 @@ interface Props {
   triggerAt?: number
   onStateChange?: (state: State) => void
 }
-
-const BASE_API = 'http://localhost:8000/api'
 
 function fmtDur(ms: number): string {
   if (!ms) return '--:--'
@@ -38,10 +37,15 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, onStateChange 
   const [state, setState] = useState<State>('idle')
   const [progress, setProgress] = useState(0)
   const [errMsg, setErrMsg] = useState<string | null>(null)
+  const { toast } = useToast()
   const tickRef = useRef<number | null>(null)
+  const triggerTimerRef = useRef<number | null>(null)
   const lastTrigger = useRef<number | undefined>(undefined)
+  const lastReportedState = useRef<State | null>(null)
 
   useEffect(() => {
+    if (lastReportedState.current === state) return
+    lastReportedState.current = state
     onStateChange?.(state)
   }, [state, onStateChange])
 
@@ -50,6 +54,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, onStateChange 
     setState('downloading')
     setErrMsg(null)
     setProgress(2)
+    toast('Track agregado a descarga', 'info')
 
     // simulated progress while server works (no real stream yet)
     if (tickRef.current) window.clearInterval(tickRef.current)
@@ -66,26 +71,34 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, onStateChange 
       if (tickRef.current) window.clearInterval(tickRef.current)
       setProgress(100)
       setState('done')
+      toast('Descarga lista', 'success')
       // browser download
-      window.location.href = `${BASE_API}/queue/${res.item_id}/file`
+      window.location.href = `${API_BASE}/queue/${res.item_id}/file`
     } catch (err) {
       if (tickRef.current) window.clearInterval(tickRef.current)
+      const message = err instanceof Error ? err.message : 'Error'
       setProgress(0)
-      setErrMsg(err instanceof Error ? err.message : 'Error')
+      setErrMsg(message)
       setState('error')
+      toast(message, 'error')
     }
   }
 
   useEffect(() => {
     if (triggerAt && triggerAt !== lastTrigger.current) {
       lastTrigger.current = triggerAt
-      if (state === 'idle' || state === 'error') download()
+      if (triggerTimerRef.current) window.clearTimeout(triggerTimerRef.current)
+      const delay = Math.max(0, triggerAt - Date.now())
+      triggerTimerRef.current = window.setTimeout(() => {
+        if (state === 'idle' || state === 'error') download()
+      }, delay)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [triggerAt])
 
   useEffect(() => () => {
     if (tickRef.current) window.clearInterval(tickRef.current)
+    if (triggerTimerRef.current) window.clearTimeout(triggerTimerRef.current)
   }, [])
 
   const cls = `track ${state === 'downloading' ? 'downloading' : ''} ${state === 'done' ? 'done' : ''} ${state === 'error' ? 'err' : ''}`

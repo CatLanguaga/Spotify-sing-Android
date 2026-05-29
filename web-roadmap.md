@@ -18,8 +18,8 @@
 |---|---|---|
 | 1 — Eliminar ADB | ✅ Completa | |
 | 2 — Backend download-to-browser | ✅ Completa | usa `pytubefix` en lugar de `yt-dlp` |
-| 3 — Frontend web-first | ✅ Mayormente | Cola/Sidebar/multi-select N/A por pivot single-page |
-| 4 — Range slider 50 tracks | ⏳ Pendiente | extensión natural del frontend |
+| 3 — Frontend web-first | ✅ Completa | Cola/Sidebar/multi-select N/A por pivot single-page; paginación diferida a Fase 4 |
+| 4 — Range slider 50 tracks | ⚠️ Completa c/bugs | slider + integración OK; pendiente loop de fetches al elegir rango intermedio + chip EN en filtro |
 | 5 — UX Polish | ⏳ Parcial | |
 | 6 — Matching YouTube | ⏳ Pendiente | |
 | 7 — SEO + estructura | ⏳ Pendiente | |
@@ -78,7 +78,7 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 - [~] ~~Selección múltiple: checkbox por fila + "Seleccionar todos" en header~~ — N/A (pivot single-page, "Descargar todo" reemplaza)
 - [~] ~~Barra inferior sticky con "Agregar a cola"~~ — N/A (sin cola; format/quality + "Descargar todo" en header del card)
 - [x] Filtro por texto (nombre/artista)
-- [ ] Filtro por idioma — pendiente
+- [x] Filtro por idioma — `PlaylistCard.tsx` filtra por badges de idioma
 - [ ] Paginación o scroll infinito — diferido a Fase 4 (range slider con clamp 50)
 
 ### Vista de Cola (Queue)
@@ -99,7 +99,7 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 - [x] Formato por defecto (mp3 / m4a / opus) y calidad (128 / 192 / 320 kbps)
 - [x] Test de conexión Spotify: botón "Verificar credenciales" (pega a `/api/spotify/status`)
 - [x] Sin campos de ADB, sin carpeta de descarga
-- [ ] Info visual sobre cómo crear una Spotify App — solo link de momento
+- [x] Info visual sobre cómo crear una Spotify App — guía paso a paso en `SettingsView.tsx`
 
 ### Sidebar / Navegación
 
@@ -118,29 +118,34 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 
 ### Límite de 50 tracks por consulta
 
-- [ ] Constante backend `MAX_TRACKS_PER_REQUEST = 50` en `src/config.py` o env var
-- [ ] `GET /api/spotify/resolve?url=&offset=&limit=` — siempre `limit ≤ 50`
-- [ ] Backend ignora `limit > 50` y aplica clamp silencioso
-- [ ] Si `playlist.total > 50`: response incluye `total`, `returned`, `offset` — el frontend renderiza el slider
-- [ ] Cache de metadata Spotify por `playlist_id` (TTL 10 min) para no repegar a Spotify API cuando el usuario mueve el slider
+- [x] Constante backend `MAX_TRACKS_PER_REQUEST = 50` en `src/config.py` o env var
+- [x] `GET /api/spotify/resolve?url=&offset=&limit=` — siempre `limit ≤ 50`
+- [x] Backend ignora `limit > 50` y aplica clamp silencioso
+- [x] Si `playlist.total > 50`: response incluye `total`, `returned`, `offset` — el frontend renderiza el slider
+- [x] Cache de metadata Spotify por `playlist_id` (TTL 10 min) para no repegar a Spotify API cuando el usuario mueve el slider
 
 ### Range slider dinámico (frontend)
 
-- [ ] Componente `<TrackRangeSlider />` con 2 handles (from / to)
-- [ ] Restricciones: `to - from ≤ 50`, `from ≥ 1`, `to ≤ playlist.total`
-- [ ] Al mover un handle: si la ventana intenta crecer > 50, el handle opuesto se desplaza automáticamente manteniendo `width = 50` (modo "ventana deslizante")
-- [ ] Modo "compactar": el usuario puede arrastrar el centro de la ventana para moverla completa sin cambiar el ancho
-- [ ] Visual: barra horizontal con marks cada 10, ventana resaltada en verde Spotify, texto `Mostrando 51–100 de 247`
-- [ ] Debounce 300 ms al refetch (`/api/spotify/resolve?offset=X&limit=Y`)
-- [ ] Estado URL: `?range=51-100` para deep-link / share
-- [ ] Botones rápidos: `[Primeras 50] [Siguientes 50] [Últimas 50]`
+- [x] Componente `<TrackRangeSlider />` con 2 handles (from / to)
+- [x] Restricciones: `to - from ≤ 50`, `from ≥ 1`, `to ≤ playlist.total`
+- [x] Al mover un handle: si la ventana intenta crecer > 50, el handle opuesto se desplaza automáticamente manteniendo `width = 50` (modo "ventana deslizante")
+- [x] Modo "compactar": el usuario puede arrastrar el centro de la ventana para moverla completa sin cambiar el ancho
+- [x] Visual: barra horizontal con marks cada 10, ventana resaltada en verde Spotify, texto `Mostrando 51–100 de 247`
+- [x] Debounce 300 ms al refetch (`/api/spotify/resolve?offset=X&limit=Y`)
+- [x] Estado URL: `?range=51-100` para deep-link / share
+- [x] Botones rápidos: `[Primeras 50] [Siguientes 50] [Últimas 50]`
 
 ### Edge cases
 
-- [ ] Playlist ≤ 50: ocultar slider, mostrar todo
-- [ ] Track individual / álbum < 50: sin slider
-- [ ] Loading skeleton mientras refetch (no parpadeo de tabla)
-- [ ] Persistir última ventana en `localStorage` por `playlist_id`
+- [x] Playlist ≤ 50: ocultar slider, mostrar todo
+- [x] Track individual / álbum < 50: sin slider
+- [x] Loading skeleton mientras refetch (no parpadeo de tabla)
+- [x] Persistir última ventana en `localStorage` por `playlist_id`
+
+### 🐛 Bugs conocidos / pendientes Fase 4
+
+- [x] **Selección de rango intermedio dispara loop de peticiones + resets** — corregido 2026-05-29: `PlaylistCard.tsx` separa el rango solicitado/cargado de la cantidad real devuelta por Spotify, así `returned < limit` ya no re-dispara el fetch indefinidamente.
+- [x] **Filtro por idioma falta EN** — corregido 2026-05-29: `track`, `album` y `playlist` usan el detector de idioma compartido; el default latino ahora clasifica como `English` salvo señales básicas de español.
 
 ---
 
@@ -148,21 +153,22 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 
 ### Flujo rápido (single-track)
 
-- [ ] Para URLs de track individual: saltarse playlist view, ir directo a cola con el track pre-cargado
-- [ ] Modal de confirmación mínimo: formato + calidad + "Descargar ahora"
+- [x] Auto-búsqueda al ingresar/pegar una URL válida: tan pronto el input detecte una URL de Spotify completa, ejecutar `GET /api/spotify/resolve?url=` sin exigir click en "Buscar" (debounce corto + evitar re-buscar la misma URL)
+- [x] Para URLs de track individual: saltarse playlist view, ir directo a cola con el track pre-cargado
+- [x] Modal de confirmación mínimo: formato + calidad + "Descargar ahora"
 
 ### Feedback visual
 
-- [ ] Toast notifications para: track agregado a cola, descarga lista, error
-- [ ] Skeleton loaders en playlist view mientras carga
-- [ ] Animación de progreso real (parsear `[X/Y]` del output de pytubefix/ffmpeg via WebSocket)
+- [x] Toast notifications para: track agregado a cola, descarga lista, error
+- [x] Skeleton loaders en playlist view mientras carga
+- [ ] Animación de progreso real (parsear `[X/Y]` del output de pytubefix/ffmpeg via WebSocket) — pendiente técnico: `download_audio` aún corre sin callbacks/progreso granular y el WebSocket actual sólo transmite logs de scripts legacy.
 
 ### Responsive / Mobile
 
-- [ ] La app debe funcionar en móvil (descargar desde el teléfono)
-- [ ] Topbar colapsa a bottom navigation en mobile
-- [ ] Cards apiladas, touch-friendly (48px min tap targets)
-- [ ] Input de URL acepta Share desde Spotify mobile
+- [x] La app debe funcionar en móvil (descargar desde el teléfono)
+- [x] Topbar colapsa a bottom navigation en mobile
+- [x] Cards apiladas, touch-friendly (48px min tap targets)
+- [x] Input de URL acepta Share desde Spotify mobile
 
 ---
 
@@ -199,6 +205,12 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 - [ ] Preferir streams con bitrate más alto disponible (ya implementado parcialmente)
 - [ ] Si el bitrate del source < bitrate destino solicitado: warning visible al usuario
 - [ ] Detectar y rechazar streams "music" cortos (intros, sketches) por duración
+
+### Metadatos Spotify en archivos descargados
+
+- [ ] Escribir tags directos desde Spotify en el audio final: título, artistas, álbum, número de track, año/fecha, portada del álbum, `spotify_id` y URL de Spotify como comentario/tag externo.
+- [ ] Incluir imagen/metadata de artista cuando esté disponible desde Spotify.
+- [ ] Usar portada de YouTube sólo como fallback si Spotify no entrega cover art.
 
 ---
 
@@ -255,7 +267,7 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 - [ ] **Hash check del audio**: SHA256 del archivo descargado mostrado, para verificar integridad
 - [ ] **ZIP download** del lote completo (mencionado en demo, falta implementar): zip server-side + stream al browser
 - [ ] **Drag & drop URL** sobre el input grande del hero
-- [ ] **Detección automática de paste**: si el usuario pega URL válida, auto-submit sin click
+- [ ] **Detección automática de paste**: cubierto/priorizado en Fase 5 como auto-búsqueda al ingresar URL válida
 - [ ] **Keyboard shortcuts**: `Cmd/Ctrl+V` desde cualquier parte, `Enter` para buscar, `D` para descargar todo
 - [ ] **Dark mode toggle** con `prefers-color-scheme` por defecto
 - [ ] **i18n ES/EN** mínimo — JSON de strings, switch en footer
@@ -264,7 +276,7 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 
 - [ ] **PWA**: manifest + service worker para instalar en mobile
 - [ ] **Tema "stealth"**: dark mode + sin animaciones, para escritorios corporativos
-- [ ] **Embed metadata extra**: BPM, key (extraíble vía librería como `librosa`) — útil para DJs
+- [ ] **Embed metadata extra**: BPM, key (extraíble vía librería como `librosa`) — útil para DJs; complementa los metadatos core de Spotify.
 - [ ] **Lyrics embed**: si Spotify devuelve lyrics, embeber como tag USLT en el mp3
 - [ ] **Soporte para Spotify podcasts** (si la API lo permite) — los episodios suelen tener audio source más limpio
 - [ ] **CLI companion**: un `pip install spotify-sing` que use el mismo backend, para integrar en scripts

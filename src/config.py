@@ -5,6 +5,8 @@ import os
 import json
 from pathlib import Path
 
+MAX_TRACKS_PER_REQUEST = int(os.environ.get('MAX_TRACKS_PER_REQUEST', '50'))
+
 
 class ConfigManager:
     def __init__(self):

@@ -1,7 +1,10 @@
-const BASE = 'http://localhost:8000/api'
+export const API_BASE =
+  window.location.port === '8000'
+    ? '/api'
+    : 'http://127.0.0.1:8000/api'
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })

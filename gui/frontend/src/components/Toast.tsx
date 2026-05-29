@@ -1,19 +1,10 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { ToastContext, type ToastType } from './toast-context'
 
 interface ToastItem {
   id: number
   message: string
-  type: 'success' | 'error' | 'info'
-}
-
-interface ToastContextValue {
-  toast: (message: string, type?: ToastItem['type']) => void
-}
-
-const ToastContext = createContext<ToastContextValue>({ toast: () => {} })
-
-export function useToast() {
-  return useContext(ToastContext)
+  type: ToastType
 }
 
 const COLORS = {

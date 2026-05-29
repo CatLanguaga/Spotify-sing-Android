@@ -1,6 +1,5 @@
 import os
 import re
-import shutil
 import sys
 import threading
 import uuid
@@ -18,7 +17,7 @@ if str(_ROOT) not in sys.path:
 from gui.backend.models import QueueItem, QueueStatus
 from gui.backend.routes import queue as queue_routes
 from src.config import ConfigManager
-from src.downloader import download_audio
+from src.downloader import download_audio, find_ffmpeg
 from src.spotify_client import SpotifyClient
 from src.youtube_client import YouTubeClient
 
@@ -68,7 +67,7 @@ def _get_spotify_client() -> SpotifyClient:
 
 
 def _check_dependencies() -> DependencyStatus:
-    ffmpeg_ok = shutil.which("ffmpeg") is not None
+    ffmpeg_ok = find_ffmpeg() is not None
     try:
         import pytubefix  # noqa: F401
         pytubefix_ok = True
@@ -257,11 +256,10 @@ def download_single_track(payload: TrackDownloadRequest):
     name = t["name"]
     artist = t["artists"][0]["name"] if t["artists"] else "Unknown"
     all_artists = ", ".join(a["name"] for a in t["artists"])
-    duration_ms = t.get("duration_ms", 0)
 
     yt = YouTubeClient()
     try:
-        results = yt.search_song_results(name, artist, duration_ms, limit=1)
+        results = yt.search_song_results(name, artist, limit=1)
     except Exception as exc:
         raise HTTPException(502, f"YouTube search failed: {exc}")
 

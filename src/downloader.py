@@ -4,7 +4,38 @@ Uses pytubefix for download and video info
 """
 import os
 import requests
+import shutil
 from pathlib import Path
+
+from src.youtube_client import without_env_proxies
+
+
+def find_ffmpeg():
+    env_path = os.environ.get("FFMPEG_PATH")
+    if env_path and Path(env_path).is_file():
+        return env_path
+
+    path_match = shutil.which("ffmpeg")
+    if path_match:
+        return path_match
+
+    candidates = [
+        *(
+            Path.home()
+            / "AppData"
+            / "Local"
+            / "Microsoft"
+            / "WinGet"
+            / "Packages"
+        ).glob("Gyan.FFmpeg*/**/bin/ffmpeg.exe"),
+        Path("C:/ProgramData/chocolatey/bin/ffmpeg.exe"),
+        Path("C:/Program Files/ffmpeg/bin/ffmpeg.exe"),
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+
+    return None
 
 
 def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quality=320):
@@ -18,13 +49,17 @@ def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quali
     _CODEC = {'mp3': 'libmp3lame', 'm4a': 'aac', 'opus': 'libopus'}
     codec = _CODEC.get(fmt, 'libmp3lame')
     ext = fmt  # mp3 / m4a / opus
+    ffmpeg_bin = find_ffmpeg()
+    if not ffmpeg_bin:
+        return False, "ffmpeg not found", None
 
     try:
         from pytubefix import YouTube
 
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
-        yt = YouTube(youtube_url)
+        with without_env_proxies():
+            yt = YouTube(youtube_url)
 
         # Get audio stream
         audio_stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
@@ -43,7 +78,8 @@ def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quali
             filename = "".join(c for c in yt.title if c.isalnum() or c in ' ._-').strip()[:80]
 
         # Download raw audio (aac/webm/etc)
-        temp_path = audio_stream.download(output_path=output_folder, filename=f"{filename}.mp4")
+        with without_env_proxies():
+            temp_path = audio_stream.download(output_path=output_folder, filename=f"{filename}.mp4")
 
         # Convert using ffmpeg with selected format and bitrate
         final_path = os.path.join(output_folder, f"{filename}.{ext}")
@@ -52,7 +88,7 @@ def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quali
 
         import subprocess as _sp
         ffmpeg_result = _sp.run(
-            ['ffmpeg', '-y', '-i', temp_path, '-vn', '-acodec', codec, '-b:a', f'{quality}k', final_path],
+            [ffmpeg_bin, '-y', '-i', temp_path, '-vn', '-acodec', codec, '-b:a', f'{quality}k', final_path],
             capture_output=True, text=True
         )
         

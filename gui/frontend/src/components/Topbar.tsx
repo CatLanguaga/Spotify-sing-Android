@@ -14,17 +14,27 @@ export function Topbar({ onNav }: Props) {
     }, 50)
   }
 
+  const nav = (
+    <>
+      <button onClick={() => onNav('home')}>Inicio</button>
+      <button onClick={() => scrollTo('tutorial')}>Como funciona</button>
+      <button onClick={() => scrollTo('faq')}>FAQ</button>
+      <button onClick={() => onNav('settings')}>Configuracion</button>
+    </>
+  )
+
   return (
-    <header className="topbar">
-      <button className="brand" onClick={() => onNav('home')} aria-label="Inicio">
-        <span className="logo">♪</span>
-        Spotify Sing
-      </button>
-      <nav>
-        <button onClick={() => scrollTo('tutorial')}>¿Cómo funciona?</button>
-        <button onClick={() => scrollTo('faq')}>FAQ</button>
-        <button onClick={() => onNav('settings')}>Configuración</button>
+    <>
+      <header className="topbar">
+        <button className="brand" onClick={() => onNav('home')} aria-label="Inicio">
+          <span className="logo">♪</span>
+          Spotify Sing
+        </button>
+        <nav className="desktop-nav">{nav}</nav>
+      </header>
+      <nav className="mobile-nav" aria-label="Navegacion principal">
+        {nav}
       </nav>
-    </header>
+    </>
   )
 }

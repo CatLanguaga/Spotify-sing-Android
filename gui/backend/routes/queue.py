@@ -21,7 +21,7 @@ from src.downloader import download_audio
 
 router = APIRouter(tags=["queue"])
 
-QUEUE_FILE     = Path.home() / ".spotifytoyoutube" / "queue.json"
+QUEUE_FILE     = Path(os.environ.get("SPOTIFY_QUEUE_FILE", _ROOT / "data" / "queue.json"))
 LOCAL_TEMP_DIR = _ROOT / "temp_downloads"
 _config        = ConfigManager()
 
