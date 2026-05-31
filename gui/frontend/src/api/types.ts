@@ -56,8 +56,20 @@ export interface ResolvedPayload {
   offset: number
 }
 
+export interface YTCandidate {
+  title: string
+  url: string
+  duration: number | null
+  channel: string | null
+  thumbnail: string | null
+  score?: number
+}
+
 export interface TrackDownloadResponse {
   item_id: string
   title: string
   artist: string
+  needs_review?: boolean
+  candidates?: YTCandidate[]
+  score?: number
 }

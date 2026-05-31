@@ -5,7 +5,10 @@ Uses pytubefix for download and video info
 import os
 import requests
 import shutil
+import subprocess
+import threading
 from pathlib import Path
+from typing import Callable, Optional
 
 from src.youtube_client import without_env_proxies
 
@@ -38,17 +41,25 @@ def find_ffmpeg():
     return None
 
 
-def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quality=320):
+def download_audio(
+    youtube_url,
+    output_folder,
+    track_info=None,
+    fmt='mp3',
+    quality=320,
+    on_progress: Optional[Callable[[int], None]] = None,
+):
     """
     Download audio from YouTube and embed metadata.
 
     Args:
-        fmt:     Output format — 'mp3', 'm4a', or 'opus'
-        quality: Target bitrate in kbps — 128, 192, or 320
+        fmt:         Output format — 'mp3', 'm4a', or 'opus'
+        quality:     Target bitrate in kbps — 128, 192, or 320
+        on_progress: Optional callback(percent: int 0-100) called during download + conversion
     """
     _CODEC = {'mp3': 'libmp3lame', 'm4a': 'aac', 'opus': 'libopus'}
     codec = _CODEC.get(fmt, 'libmp3lame')
-    ext = fmt  # mp3 / m4a / opus
+    ext = fmt
     ffmpeg_bin = find_ffmpeg()
     if not ffmpeg_bin:
         return False, "ffmpeg not found", None
@@ -61,13 +72,24 @@ def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quali
         with without_env_proxies():
             yt = YouTube(youtube_url)
 
-        # Get audio stream
+        if on_progress:
+            _total = [0]
+
+            def _yt_cb(stream, chunk, bytes_remaining):
+                total = _total[0] or getattr(stream, 'filesize', 0)
+                if not _total[0] and total:
+                    _total[0] = total
+                if total > 0:
+                    pct = int((1 - bytes_remaining / total) * 60)  # 0-60
+                    on_progress(5 + pct)  # reports 5-65%
+
+            yt.register_on_progress_callback(_yt_cb)
+
         audio_stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
 
         if not audio_stream:
             return False, "No audio stream", None
 
-        # Create filename
         if track_info:
             artist = track_info.get('artist', 'Unknown')
             name = track_info.get('name', 'Unknown')
@@ -77,51 +99,82 @@ def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quali
         else:
             filename = "".join(c for c in yt.title if c.isalnum() or c in ' ._-').strip()[:80]
 
-        # Download raw audio (aac/webm/etc)
         with without_env_proxies():
             temp_path = audio_stream.download(output_path=output_folder, filename=f"{filename}.mp4")
 
-        # Convert using ffmpeg with selected format and bitrate
+        if on_progress:
+            on_progress(65)
+
         final_path = os.path.join(output_folder, f"{filename}.{ext}")
         if os.path.exists(final_path):
             os.remove(final_path)
 
-        import subprocess as _sp
-        ffmpeg_result = _sp.run(
-            [ffmpeg_bin, '-y', '-i', temp_path, '-vn', '-acodec', codec, '-b:a', f'{quality}k', final_path],
-            capture_output=True, text=True
-        )
-        
-        # Remove raw download regardless of outcome
+        if on_progress:
+            # Use Popen + -progress pipe:1 for granular ffmpeg progress
+            duration_us = (getattr(yt, 'length', 0) or 0) * 1_000_000
+            stderr_buf: list[str] = []
+
+            proc = subprocess.Popen(
+                [ffmpeg_bin, '-y', '-i', temp_path, '-vn', '-acodec', codec,
+                 '-b:a', f'{quality}k', '-loglevel', 'error', '-progress', 'pipe:1', final_path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+
+            def _drain_stderr():
+                for line in proc.stderr:
+                    stderr_buf.append(line)
+
+            t = threading.Thread(target=_drain_stderr, daemon=True)
+            t.start()
+
+            for line in proc.stdout:
+                line = line.strip()
+                if line.startswith('out_time_us=') and duration_us > 0:
+                    try:
+                        us = int(line.split('=', 1)[1])
+                        pct = min(100, int(us / duration_us * 100))
+                        on_progress(65 + int(pct * 0.30))  # reports 65-95%
+                    except (ValueError, ZeroDivisionError):
+                        pass
+
+            proc.wait()
+            t.join(timeout=2)
+            ffmpeg_returncode = proc.returncode
+            ffmpeg_stderr = ''.join(stderr_buf)
+        else:
+            result = subprocess.run(
+                [ffmpeg_bin, '-y', '-i', temp_path, '-vn', '-acodec', codec,
+                 '-b:a', f'{quality}k', final_path],
+                capture_output=True, text=True,
+            )
+            ffmpeg_returncode = result.returncode
+            ffmpeg_stderr = result.stderr
+
         try:
             os.remove(temp_path)
         except Exception:
             pass
-        
-        if ffmpeg_result.returncode != 0 or not os.path.exists(final_path):
-            return False, f"ffmpeg conversion failed: {ffmpeg_result.stderr[-200:]}", None
-        
-        # Get YouTube thumbnail as fallback
+
+        if ffmpeg_returncode != 0 or not os.path.exists(final_path):
+            return False, f"ffmpeg conversion failed: {ffmpeg_stderr[-200:]}", None
+
+        if on_progress:
+            on_progress(95)
+
         youtube_thumbnail = yt.thumbnail_url
-        
-        # Add metadata
+
         if track_info:
-            # Use YouTube thumbnail if no Spotify art
             if not track_info.get('album_art_url') and youtube_thumbnail:
                 track_info['album_art_url'] = youtube_thumbnail
-            
             add_metadata(final_path, track_info)
         else:
-            # Create basic metadata from YouTube info
-            yt_info = {
-                'name': yt.title,
-                'artist': yt.author,
-                'album_art_url': youtube_thumbnail
-            }
-            add_metadata(final_path, yt_info)
-        
+            add_metadata(final_path, {'name': yt.title, 'artist': yt.author, 'album_art_url': youtube_thumbnail})
+
+        if on_progress:
+            on_progress(100)
+
         return True, "OK", final_path
-        
+
     except Exception as e:
         error_msg = str(e)
         if "regex_search" in error_msg:
@@ -132,72 +185,148 @@ def download_audio(youtube_url, output_folder, track_info=None, fmt='mp3', quali
             return False, error_msg[:30], None
 
 
-def add_metadata(filepath, track_info):
-    """Add ID3 metadata to MP3 file"""
+def _fetch_cover_as_jpeg(url: Optional[str]) -> Optional[bytes]:
+    """Download cover art and normalize to JPEG. Windows Explorer requires JPEG for thumbnails."""
+    if not url:
+        return None
     try:
-        from mutagen.mp3 import MP3
-        from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC, ID3NoHeaderError
-        
-        try:
-            audio = MP3(filepath, ID3=ID3)
-        except ID3NoHeaderError:
-            audio = MP3(filepath)
-            audio.add_tags()
-        
-        # Clear existing tags
-        for tag in ['TIT2', 'TPE1', 'TALB', 'TDRC', 'TRCK', 'APIC']:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return None
+        data = response.content
+        content_type = response.headers.get('content-type', '').lower()
+        # Convert anything that isn't JPEG to JPEG via Pillow
+        if 'jpeg' not in content_type and 'jpg' not in content_type:
             try:
-                audio.tags.delall(tag)
-            except:
-                pass
-        
-        # Add title
-        if track_info.get('name'):
-            audio.tags.add(TIT2(encoding=3, text=track_info['name']))
-        
-        # Add artist
-        if track_info.get('all_artists'):
-            audio.tags.add(TPE1(encoding=3, text=track_info['all_artists']))
-        elif track_info.get('artist'):
-            audio.tags.add(TPE1(encoding=3, text=track_info['artist']))
-        
-        # Add album
-        if track_info.get('album'):
-            audio.tags.add(TALB(encoding=3, text=track_info['album']))
-        
-        # Add year
-        if track_info.get('year'):
-            audio.tags.add(TDRC(encoding=3, text=track_info['year']))
-        
-        # Add track number
-        if track_info.get('track_number'):
-            audio.tags.add(TRCK(encoding=3, text=str(track_info['track_number'])))
-        
-        # Download and add cover art (Spotify or YouTube)
-        if track_info.get('album_art_url'):
-            try:
-                response = requests.get(track_info['album_art_url'], timeout=10)
-                if response.status_code == 200:
-                    # Detect image type
-                    mime = 'image/jpeg'
-                    if 'png' in track_info['album_art_url'].lower():
-                        mime = 'image/png'
-                    elif 'webp' in track_info['album_art_url'].lower():
-                        mime = 'image/webp'
-                    
-                    audio.tags.add(APIC(
-                        encoding=3,
-                        mime=mime,
-                        type=3,  # Cover (front)
-                        desc='Cover',
-                        data=response.content
-                    ))
-            except Exception as e:
-                print(f"Could not download cover art: {e}")
-        
-        audio.save()
-        return True
-        
+                import io
+                from PIL import Image
+                img = Image.open(io.BytesIO(data))
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=90)
+                data = buf.getvalue()
+            except Exception:
+                pass  # Fall back to raw bytes; at least try to embed
+        return data
     except Exception as e:
-        print(f"Error adding metadata: {e}")
+        print(f"Could not fetch cover art: {e}")
+        return None
+
+
+def _tag_mp3(filepath: str, track_info: dict, cover_data: Optional[bytes]) -> None:
+    """Write ID3v2.3 tags to MP3. Windows Explorer thumbnail requires ID3v2.3, not v2.4."""
+    from mutagen.mp3 import MP3
+    from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC, COMM, ID3NoHeaderError
+
+    try:
+        audio = MP3(filepath, ID3=ID3)
+    except ID3NoHeaderError:
+        audio = MP3(filepath)
+        audio.add_tags()
+
+    for tag in ['TIT2', 'TPE1', 'TALB', 'TDRC', 'TRCK', 'APIC', 'COMM']:
+        try:
+            audio.tags.delall(tag)
+        except Exception:
+            pass
+
+    if track_info.get('name'):
+        audio.tags.add(TIT2(encoding=3, text=track_info['name']))
+    if track_info.get('all_artists') or track_info.get('artist'):
+        audio.tags.add(TPE1(encoding=3, text=track_info.get('all_artists') or track_info['artist']))
+    if track_info.get('album'):
+        audio.tags.add(TALB(encoding=3, text=track_info['album']))
+    if track_info.get('year'):
+        audio.tags.add(TDRC(encoding=3, text=str(track_info['year'])))
+    if track_info.get('track_number'):
+        audio.tags.add(TRCK(encoding=3, text=str(track_info['track_number'])))
+    if track_info.get('spotify_url'):
+        audio.tags.add(COMM(encoding=3, lang='eng', desc='spotify', text=track_info['spotify_url']))
+    if cover_data:
+        audio.tags.add(APIC(encoding=3, mime='image/jpeg', type=3, desc='Cover', data=cover_data))
+
+    audio.save(v2_version=3)
+
+
+def _tag_m4a(filepath: str, track_info: dict, cover_data: Optional[bytes]) -> None:
+    """Write metadata to M4A/MP4 container using the covr atom."""
+    from mutagen.mp4 import MP4, MP4Cover
+
+    audio = MP4(filepath)
+    if audio.tags is None:
+        audio.add_tags()
+
+    if track_info.get('name'):
+        audio.tags['\xa9nam'] = [track_info['name']]
+    if track_info.get('all_artists') or track_info.get('artist'):
+        audio.tags['\xa9ART'] = [track_info.get('all_artists') or track_info['artist']]
+    if track_info.get('album'):
+        audio.tags['\xa9alb'] = [track_info['album']]
+    if track_info.get('year'):
+        audio.tags['\xa9day'] = [str(track_info['year'])]
+    if track_info.get('track_number'):
+        audio.tags['trkn'] = [(int(track_info['track_number']), 0)]
+    if cover_data:
+        audio.tags['covr'] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)]
+
+    audio.save()
+
+
+def _tag_opus(filepath: str, track_info: dict, cover_data: Optional[bytes]) -> None:
+    """Write Vorbis comments + METADATA_BLOCK_PICTURE to OGG/OPUS file."""
+    import base64
+    import struct
+    from mutagen.oggopus import OggOpus
+
+    audio = OggOpus(filepath)
+
+    if track_info.get('name'):
+        audio['title'] = [track_info['name']]
+    if track_info.get('all_artists') or track_info.get('artist'):
+        audio['artist'] = [track_info.get('all_artists') or track_info['artist']]
+    if track_info.get('album'):
+        audio['album'] = [track_info['album']]
+    if track_info.get('year'):
+        audio['date'] = [str(track_info['year'])]
+    if track_info.get('track_number'):
+        audio['tracknumber'] = [str(track_info['track_number'])]
+    if cover_data:
+        mime = b'image/jpeg'
+        desc = b''
+        # METADATA_BLOCK_PICTURE binary structure (Vorbis comments spec)
+        block = (
+            struct.pack('>I', 3) +                      # picture type: Cover Front
+            struct.pack('>I', len(mime)) + mime +
+            struct.pack('>I', len(desc)) + desc +
+            struct.pack('>IIII', 0, 0, 0, 0) +          # width/height/depth/colors (0=unknown)
+            struct.pack('>I', len(cover_data)) + cover_data
+        )
+        audio['metadata_block_picture'] = [base64.b64encode(block).decode('ascii')]
+
+    audio.save()
+
+
+def add_metadata(filepath: str, track_info: dict) -> bool:
+    """
+    Embed metadata + cover art into the audio file.
+
+    Cover art is always normalized to JPEG before embedding — Windows Explorer
+    shell thumbnails require JPEG regardless of the source format.
+    ID3 is saved as v2.3 (not v2.4) for the same reason.
+    """
+    try:
+        cover_data = _fetch_cover_as_jpeg(track_info.get('album_art_url'))
+        ext = Path(filepath).suffix.lower()
+
+        if ext == '.mp3':
+            _tag_mp3(filepath, track_info, cover_data)
+        elif ext in ('.m4a', '.mp4'):
+            _tag_m4a(filepath, track_info, cover_data)
+        elif ext in ('.opus', '.ogg'):
+            _tag_opus(filepath, track_info, cover_data)
+
+        return True
+    except Exception as e:
+        print(f"Error adding metadata to {filepath}: {e}")
         return False

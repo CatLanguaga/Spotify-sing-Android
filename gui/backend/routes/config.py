@@ -30,6 +30,7 @@ def save_config(body: SpotifyConfig):
             default_quality=body.default_quality,
             default_range_from=body.default_range_from,
             default_range_to=body.default_range_to,
+            manual_review_enabled=body.manual_review_enabled,
         )
         return {"ok": True}
     except Exception as e:

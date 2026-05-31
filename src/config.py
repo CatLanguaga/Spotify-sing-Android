@@ -21,7 +21,8 @@ class ConfigManager:
         
     def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None,
                     playlist_id=None, default_fmt=None, default_quality=None,
-                    default_range_from=None, default_range_to=None):
+                    default_range_from=None, default_range_to=None,
+                    manual_review_enabled=None):
         """Save API credentials and settings - YouTube API no longer needed"""
         existing = self.load_config() or {}
 
@@ -34,6 +35,7 @@ class ConfigManager:
             'default_quality': default_quality if default_quality is not None else existing.get('default_quality', 320),
             'default_range_from': default_range_from if default_range_from is not None else existing.get('default_range_from', 1),
             'default_range_to': default_range_to if default_range_to is not None else existing.get('default_range_to', None),
+            'manual_review_enabled': manual_review_enabled if manual_review_enabled is not None else existing.get('manual_review_enabled', False),
         }
 
         with open(self.config_file, 'w', encoding='utf-8') as f:

@@ -1,21 +1,21 @@
-import { useState } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { Topbar } from './components/Topbar'
 import { Footer } from './components/Footer'
 import { ToastProvider } from './components/Toast'
-import { HomeView } from './views/HomeView'
+import { LandingView } from './views/LandingView'
 import { SettingsView } from './views/SettingsView'
 
-type View = 'home' | 'settings'
-
 function AppInner() {
-  const [view, setView] = useState<View>('home')
-
   return (
     <>
-      <Topbar view={view} onNav={setView} />
+      <Topbar />
       <main>
-        {view === 'home'     && <HomeView />}
-        {view === 'settings' && <SettingsView />}
+        <Routes>
+          <Route path="/"         element={<LandingView />} />
+          <Route path="/app"      element={<Navigate to="/" replace />} />
+          <Route path="/settings" element={<SettingsView />} />
+          <Route path="*"         element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
       <Footer />
     </>

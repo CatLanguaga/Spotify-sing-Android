@@ -24,6 +24,7 @@ class SpotifyConfig(BaseModel):
     default_quality: int = 320
     default_range_from: int = 1
     default_range_to: Optional[int] = None
+    manual_review_enabled: bool = False
 
 
 class QueueItem(BaseModel):
@@ -38,8 +39,10 @@ class QueueItem(BaseModel):
     cover_url: Optional[str] = None
     youtube_url: Optional[str] = None
     local_path: Optional[str] = None
-    fmt: str = 'mp3'        # mp3 / m4a / opus
-    quality: int = 320      # 128 / 192 / 320 kbps
+    fmt: str = 'mp3'
+    quality: int = 320
+    year: str = ''
+    track_number: int = 0
 
 
 class QueuePatch(BaseModel):

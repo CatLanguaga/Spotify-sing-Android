@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { API_BASE, api } from '../api/client'
-import type { SpotifyTrack, TrackDownloadResponse } from '../api/types'
+import useSWR from 'swr'
+import { API_BASE, api, fetcher } from '../api/client'
+import { triggerBrowserDownload } from '../api/download'
+import { normalizeLang } from '../api/langLabel'
+import type { SpotifyTrack, TrackDownloadResponse, YTCandidate } from '../api/types'
 import { useToast } from './toast-context'
+import { ManualSearchModal } from './ManualSearchModal'
 
 type State = 'idle' | 'downloading' | 'done' | 'error'
 
@@ -11,7 +15,25 @@ interface Props {
   fmt: string
   quality: number
   triggerAt?: number
+  queued?: boolean
   onStateChange?: (state: State) => void
+}
+
+const OVERRIDE_KEY = 'yt_overrides'
+
+function getOverride(spotifyId: string): string | null {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OVERRIDE_KEY) || '{}')
+    return stored[spotifyId] ?? null
+  } catch { return null }
+}
+
+function saveOverride(spotifyId: string, url: string) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(OVERRIDE_KEY) || '{}')
+    stored[spotifyId] = url
+    localStorage.setItem(OVERRIDE_KEY, JSON.stringify(stored))
+  } catch { /* ignore storage errors */ }
 }
 
 function fmtDur(ms: number): string {
@@ -22,26 +44,23 @@ function fmtDur(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function detectLang(raw: string): string {
-  if (!raw) return ''
-  const s = raw.toUpperCase()
-  if (s.includes('JP') || s.includes('JAPAN')) return 'JP'
-  if (s.includes('KR') || s.includes('KOREAN')) return 'KR'
-  if (s.includes('ES') || s.includes('SPANISH')) return 'ES'
-  if (s.includes('CN') || s.includes('CHINESE')) return 'CN'
-  if (s.includes('EN') || s.includes('ENGLISH')) return 'EN'
-  return s.slice(0, 2)
-}
-
-export function TrackRow({ track, index, fmt, quality, triggerAt, onStateChange }: Props) {
+export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStateChange }: Props) {
   const [state, setState] = useState<State>('idle')
   const [progress, setProgress] = useState(0)
+  const [indeterminate, setIndeterminate] = useState(false)
   const [errMsg, setErrMsg] = useState<string | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewCandidates, setReviewCandidates] = useState<YTCandidate[]>([])
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null)
   const { toast } = useToast()
-  const tickRef = useRef<number | null>(null)
+  const esRef = useRef<EventSource | null>(null)
   const triggerTimerRef = useRef<number | null>(null)
   const lastTrigger = useRef<number | undefined>(undefined)
   const lastReportedState = useRef<State | null>(null)
+
+  // SWR dedupes this: all TrackRows share one cached config request
+  const { data: cfg } = useSWR<Record<string, unknown>>('/config', fetcher)
+  const manualReview = (cfg?.manual_review_enabled as boolean) ?? false
 
   useEffect(() => {
     if (lastReportedState.current === state) return
@@ -49,33 +68,152 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, onStateChange 
     onStateChange?.(state)
   }, [state, onStateChange])
 
+  const startSSE = (itemId: string) => {
+    esRef.current?.close()
+    const es = new EventSource(`${API_BASE}/queue/${itemId}/progress`)
+    esRef.current = es
+    let resolved = false
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data) as { percent?: number; state?: string; error?: string }
+        if (typeof data.percent === 'number') setProgress(data.percent)
+        if (data.state === 'done') {
+          resolved = true
+          es.close()
+          setProgress(100)
+          setState('done')
+          toast('Descarga lista', 'success')
+          triggerBrowserDownload(`${API_BASE}/queue/${itemId}/file`)
+        } else if (data.state === 'error') {
+          resolved = true
+          es.close()
+          const msg = data.error === 'geo_restricted'
+            ? 'Restringido por región — intenta con VPN'
+            : (data.error ?? 'Error')
+          setProgress(0)
+          setErrMsg(msg)
+          setState('error')
+          toast(msg, 'error')
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
+    es.onerror = () => {
+      if (resolved) return
+      es.close()
+      setIndeterminate(false)
+      setProgress(0)
+      setErrMsg('Conexión perdida')
+      setState('error')
+      toast('Conexión perdida', 'error')
+    }
+  }
+
+  const confirmWithUrl = async (itemId: string, youtubeUrl: string) => {
+    setIndeterminate(false)
+    setProgress(5)
+    try {
+      await api.post('/download/track/confirm', { item_id: itemId, youtube_url: youtubeUrl })
+      startSSE(itemId)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al confirmar'
+      setProgress(0)
+      setErrMsg(message)
+      setState('error')
+      toast(message, 'error')
+    }
+  }
+
+  const handleReviewSelect = (url: string) => {
+    setReviewOpen(false)
+    if (!pendingItemId) return
+    saveOverride(track.spotify_id, url)
+    setState('downloading')
+    setErrMsg(null)
+    confirmWithUrl(pendingItemId, url)
+  }
+
   const download = async () => {
     if (state === 'downloading' || state === 'done') return
     setState('downloading')
     setErrMsg(null)
-    setProgress(2)
+    setProgress(0)
+    setIndeterminate(true)
     toast('Track agregado a descarga', 'info')
 
-    // simulated progress while server works (no real stream yet)
-    if (tickRef.current) window.clearInterval(tickRef.current)
-    tickRef.current = window.setInterval(() => {
-      setProgress(p => (p < 90 ? p + Math.random() * 8 + 2 : p))
-    }, 400)
+    // Check localStorage for a known-good override
+    const override = getOverride(track.spotify_id)
+    if (override) {
+      // Skip resolve — go straight to confirm
+      try {
+        const res = await api.post<TrackDownloadResponse>('/download/track', {
+          spotify_id: track.spotify_id, fmt, quality,
+        })
+        setIndeterminate(false)
+        // Confirm with the saved override URL instead of the auto-resolved one
+        await confirmWithUrl(res.item_id, override)
+        return
+      } catch { /* fall through to normal flow */ }
+    }
 
     try {
+      // Phase 1: Spotify lookup + YouTube search (~3-7s, indeterminate bar)
       const res = await api.post<TrackDownloadResponse>('/download/track', {
         spotify_id: track.spotify_id,
         fmt,
         quality,
       })
-      if (tickRef.current) window.clearInterval(tickRef.current)
-      setProgress(100)
-      setState('done')
-      toast('Descarga lista', 'success')
-      // browser download
-      window.location.href = `${API_BASE}/queue/${res.item_id}/file`
+
+      setIndeterminate(false)
+
+      if (res.needs_review) {
+        // Backend flagged low confidence — show manual selection modal
+        setPendingItemId(res.item_id)
+        setReviewCandidates(res.candidates ?? [])
+        setReviewOpen(true)
+        setState('idle')  // reset to idle while user picks
+        return
+      }
+
+      // Phase 2: Real download progress via SSE
+      startSSE(res.item_id)
+
     } catch (err) {
-      if (tickRef.current) window.clearInterval(tickRef.current)
+      esRef.current?.close()
+      setIndeterminate(false)
+      const message = err instanceof Error ? err.message : 'Error'
+      setProgress(0)
+      setErrMsg(message)
+      setState('error')
+      toast(message, 'error')
+    }
+  }
+
+  const openManualSearch = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPendingItemId(null)  // will be set after POST resolves
+    setReviewCandidates([])
+    setReviewOpen(true)
+  }
+
+  // Manual search opened without a pending item_id: we need to trigger a resolve first
+  const handleManualSelectNoPending = async (url: string) => {
+    setReviewOpen(false)
+    setState('downloading')
+    setErrMsg(null)
+    setProgress(0)
+    setIndeterminate(true)
+    toast('Resolviendo track…', 'info')
+    try {
+      const res = await api.post<TrackDownloadResponse>('/download/track', {
+        spotify_id: track.spotify_id, fmt, quality,
+      })
+      setIndeterminate(false)
+      saveOverride(track.spotify_id, url)
+      await confirmWithUrl(res.item_id, url)
+    } catch (err) {
+      setIndeterminate(false)
       const message = err instanceof Error ? err.message : 'Error'
       setProgress(0)
       setErrMsg(message)
@@ -97,44 +235,78 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, onStateChange 
   }, [triggerAt])
 
   useEffect(() => () => {
-    if (tickRef.current) window.clearInterval(tickRef.current)
     if (triggerTimerRef.current) window.clearTimeout(triggerTimerRef.current)
+    esRef.current?.close()
   }, [])
 
-  const cls = `track ${state === 'downloading' ? 'downloading' : ''} ${state === 'done' ? 'done' : ''} ${state === 'error' ? 'err' : ''}`
-  const lang = detectLang(track.language)
+  // Waiting in the batch pool (backend runs N at a time): show as pending.
+  const showQueued = !!queued && state === 'idle'
+  const cls = `track ${state === 'downloading' ? 'downloading' : ''} ${state === 'done' ? 'done' : ''} ${state === 'error' ? 'err' : ''} ${showQueued ? 'queued' : ''}`
+  const lang = track.language ? normalizeLang(track.language) : ''
   const coverStyle = track.album_art_url
     ? { backgroundImage: `url(${track.album_art_url})` }
     : { background: 'linear-gradient(135deg,#1DB954,#0F0F11)' }
 
   let btnLabel = '⬇ Descargar'
+  if (showQueued)              btnLabel = '⏳ En cola…'
   if (state === 'downloading') btnLabel = '⏳ Descargando…'
   if (state === 'done')        btnLabel = '✓ Descargado'
   if (state === 'error')       btnLabel = '↻ Reintentar'
 
   return (
-    <div className={cls.trim()}>
-      <div className="idx">{index + 1}</div>
-      <div className="cover" style={coverStyle} />
-      <div className="tx">
-        <div className="t">{track.name}</div>
-        <div className="a">{track.all_artists || track.artist}</div>
-      </div>
-      {lang ? <div className="lang">{lang}</div> : <div />}
-      <div className="dur">{fmtDur(track.duration_ms)}</div>
-      <button
-        className="dl-btn"
-        onClick={download}
-        title={errMsg ?? ''}
-        disabled={state === 'downloading'}
-      >
-        {btnLabel}
-      </button>
-      {state === 'downloading' && (
-        <div className="progress-mini">
-          <div className="bar" style={{ width: `${progress}%` }} />
+    <>
+      <div className={cls.trim()}>
+        <div className="idx">{index + 1}</div>
+        <div className="cover" style={coverStyle} />
+        <div className="tx">
+          <div className="t">{track.name}</div>
+          <div className="a">{track.all_artists || track.artist}</div>
         </div>
+        {lang ? <div className="lang">{lang}</div> : <div />}
+        <div className="dur">{fmtDur(track.duration_ms)}</div>
+        <div className="dl-group">
+          <button
+            className="dl-btn"
+            onClick={download}
+            title={errMsg ?? ''}
+            disabled={state === 'downloading' || showQueued}
+          >
+            {btnLabel}
+          </button>
+          {manualReview && state !== 'downloading' && (
+            <button
+              className="dl-btn-search"
+              onClick={openManualSearch}
+              title="Buscar fuente manualmente"
+              aria-label="Buscar fuente de YouTube manualmente"
+            >
+              🔍
+            </button>
+          )}
+        </div>
+        {state === 'downloading' && (
+          <div className="progress-mini">
+            {indeterminate
+              ? <div className="bar indeterminate" />
+              : <div className="bar" style={{ width: `${progress}%` }} />}
+          </div>
+        )}
+        {showQueued && (
+          <div className="progress-mini">
+            <div className="bar pending" />
+          </div>
+        )}
+      </div>
+
+      {reviewOpen && (
+        <ManualSearchModal
+          trackName={track.name}
+          trackArtist={track.all_artists || track.artist}
+          candidates={reviewCandidates}
+          onSelect={pendingItemId ? handleReviewSelect : handleManualSelectNoPending}
+          onClose={() => setReviewOpen(false)}
+        />
       )}
-    </div>
+    </>
   )
 }

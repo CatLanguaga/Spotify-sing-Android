@@ -1,38 +1,31 @@
-type View = 'home' | 'settings'
+import { NavLink } from 'react-router-dom'
 
-interface Props {
-  view: View
-  onNav: (v: View) => void
-}
-
-export function Topbar({ onNav }: Props) {
+export function Topbar() {
   const scrollTo = (id: string) => {
-    onNav('home')
     setTimeout(() => {
-      const el = document.getElementById(id)
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
   }
 
   const nav = (
     <>
-      <button onClick={() => onNav('home')}>Inicio</button>
-      <button onClick={() => scrollTo('tutorial')}>Como funciona</button>
-      <button onClick={() => scrollTo('faq')}>FAQ</button>
-      <button onClick={() => onNav('settings')}>Configuracion</button>
+      <NavLink to="/" end>Inicio</NavLink>
+      <a href="/#tutorial" onClick={() => scrollTo('tutorial')}>Cómo funciona</a>
+      <a href="/#faq"      onClick={() => scrollTo('faq')}>FAQ</a>
+      <NavLink to="/settings">Configuración</NavLink>
     </>
   )
 
   return (
     <>
       <header className="topbar">
-        <button className="brand" onClick={() => onNav('home')} aria-label="Inicio">
+        <NavLink className="brand" to="/" aria-label="Inicio">
           <span className="logo">♪</span>
           Spotify Sing
-        </button>
+        </NavLink>
         <nav className="desktop-nav">{nav}</nav>
       </header>
-      <nav className="mobile-nav" aria-label="Navegacion principal">
+      <nav className="mobile-nav" aria-label="Navegación principal">
         {nav}
       </nav>
     </>

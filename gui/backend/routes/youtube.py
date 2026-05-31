@@ -22,18 +22,27 @@ class YTResult(BaseModel):
     duration: Optional[int] = None
     channel: Optional[str] = None
     thumbnail: Optional[str] = None
+    score: Optional[float] = None
 
 
 @router.get("/youtube/search", response_model=List[YTResult])
 def search_youtube(
-    song: str = Query(...),
+    q: Optional[str] = Query(None, description="Raw search query (used by manual modal)"),
+    song: Optional[str] = Query(None),
     artist: str = Query(""),
     duration_ms: Optional[int] = Query(None),
     limit: int = Query(5, ge=1, le=10),
 ):
-    """Return up to `limit` YouTube results for the given track."""
+    """Return up to `limit` YouTube results. Use `q` for a raw query or `song`+`artist` for structured search."""
     try:
-        results = _yt.search_song_results(song, artist, duration_ms or 0, limit=limit)
+        if q:
+            results = _yt.search_raw(q, limit=limit)
+        else:
+            if not song:
+                raise HTTPException(400, "Provide either 'q' or 'song' parameter.")
+            results = _yt.search_song_results(song, artist, duration_ms or 0, limit=limit)
         return results
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, str(e))

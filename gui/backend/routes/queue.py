@@ -1,14 +1,17 @@
+import asyncio
 import json
 import os
 import shutil
 import sys
+import threading
+import time
 import uuid
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 _ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).resolve().parent.parent.parent.parent))
@@ -24,6 +27,20 @@ router = APIRouter(tags=["queue"])
 QUEUE_FILE     = Path(os.environ.get("SPOTIFY_QUEUE_FILE", _ROOT / "data" / "queue.json"))
 LOCAL_TEMP_DIR = _ROOT / "temp_downloads"
 _config        = ConfigManager()
+
+# Per-item download progress shared between background threads and the SSE endpoint.
+# Schema: {"percent": int, "state": "downloading"|"done"|"error", "error": str|None, "ts": float}
+_DL_STATE: Dict[str, dict] = {}
+_DL_STATE_LOCK = threading.Lock()
+
+# Serializes read-modify-write cycles on queue.json. Without it, concurrent
+# _bg_download threads race and lost updates drop local_path → "File not found".
+_QUEUE_LOCK = threading.Lock()
+
+
+def _set_progress(item_id: str, percent: int, state: str = "downloading", error: str = None) -> None:
+    with _DL_STATE_LOCK:
+        _DL_STATE[item_id] = {"percent": percent, "state": state, "error": error, "ts": time.time()}
 
 
 # ─── persistence ───────────────────────────────────────────────────────────────
@@ -45,6 +62,24 @@ def _update_item(items: List[dict], item: dict) -> None:
             items[i] = item
             break
     _save(items)
+
+
+def _patch_item(item_id: str, **fields) -> dict | None:
+    """Atomic read-modify-write of a single queue item under _QUEUE_LOCK.
+
+    Safe for concurrent threads: the whole load→find→apply→save cycle is
+    serialized, so simultaneous writers don't clobber each other's local_path.
+    Returns the patched item, or None if the id is missing.
+    """
+    with _QUEUE_LOCK:
+        items = _load()
+        for i, it in enumerate(items):
+            if it["id"] == item_id:
+                it.update(fields)
+                items[i] = it
+                _save(items)
+                return it
+    return None
 
 
 # ─── routes ────────────────────────────────────────────────────────────────────
@@ -157,6 +192,28 @@ def serve_queue_file(item_id: str, background_tasks: BackgroundTasks):
         path=local_path,
         filename=filename,
         headers={"Content-Disposition": content_disposition},
+    )
+
+
+@router.get("/queue/{item_id}/progress")
+async def progress_stream(item_id: str):
+    """SSE stream that emits {percent, state, error} until download is done or errors."""
+    async def events():
+        deadline = asyncio.get_event_loop().time() + 300  # 5-min safety timeout
+        while asyncio.get_event_loop().time() < deadline:
+            with _DL_STATE_LOCK:
+                s = dict(_DL_STATE.get(item_id, {}))
+            if s:
+                yield f"data: {json.dumps(s)}\n\n"
+                if s.get("state") in ("done", "error"):
+                    return
+            await asyncio.sleep(0.2)
+        yield f"data: {json.dumps({'percent': 0, 'state': 'error', 'error': 'timeout'})}\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
     )
 
 

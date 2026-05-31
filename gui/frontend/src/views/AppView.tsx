@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { HeroSearch } from '../components/HeroSearch'
 import { PlaylistCard } from '../components/PlaylistCard'
 import { QuickTrackModal } from '../components/QuickTrackModal'
-import { TutorialSection } from '../components/TutorialSection'
 import { useToast } from '../components/toast-context'
 import type { ResolvedPayload, SpotifyTrack } from '../api/types'
 
@@ -39,7 +38,7 @@ function ResultsSkeleton() {
   )
 }
 
-export function HomeView() {
+export function AppView() {
   const [payload, setPayload] = useState<ResolvedPayload | null>(null)
   const [sourceUrl, setSourceUrl] = useState('')
   const [searching, setSearching] = useState(false)
@@ -68,8 +67,6 @@ export function HomeView() {
       {searching && !payload && !quickTrack && <ResultsSkeleton />}
       {payload && <PlaylistCard payload={payload} sourceUrl={sourceUrl} />}
       {quickTrack && <QuickTrackModal track={quickTrack} onClose={() => setQuickTrack(null)} />}
-
-      <TutorialSection />
     </>
   )
 }

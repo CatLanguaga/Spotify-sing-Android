@@ -6,15 +6,55 @@ import spotipy
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
 
+try:
+    from langdetect import detect_langs, DetectorFactory
+    from langdetect.lang_detect_exception import LangDetectException
+    # langdetect is non-deterministic by default; seed for stable results.
+    DetectorFactory.seed = 0
+    _LANGDETECT_OK = True
+except Exception:  # pragma: no cover - optional dependency
+    _LANGDETECT_OK = False
+    LangDetectException = Exception
+
 
 # Known Japanese/Korean labels and keywords
 JAPANESE_LABELS = ['sony music japan', 'avex', 'lantis', 'aniplex', 'king records', 'victor', 'pony canyon', 'bushiroad']
 KOREAN_LABELS = ['sm entertainment', 'jyp', 'yg entertainment', 'hybe', 'kakao', 'starship']
-SPANISH_HINTS = {
-    'amor', 'baila', 'bailando', 'beso', 'cancion', 'corazon', 'contigo',
-    'de', 'del', 'el', 'ella', 'eres', 'esta', 'la', 'las', 'lo', 'los',
-    'mi', 'noche', 'para', 'por', 'que', 'sin', 'te', 'tu', 'vida', 'yo',
+
+# langdetect ISO codes → display names used by the UI / filters.
+_LANG_CODE_TO_NAME = {
+    'es': 'Spanish', 'en': 'English', 'pt': 'Portuguese',
+    'it': 'Italian', 'fr': 'French',
 }
+# Min confidence to trust langdetect's top guess for short metadata strings.
+_LANGDETECT_MIN_CONF = 0.85
+
+# Expanded stopword sets for the fallback heuristic (scoring, not first-match).
+STOPWORDS = {
+    'Spanish': {
+        'amor', 'baila', 'bailando', 'beso', 'cancion', 'corazon', 'contigo',
+        'de', 'del', 'el', 'ella', 'eres', 'esta', 'la', 'las', 'lo', 'los',
+        'mi', 'noche', 'para', 'por', 'que', 'sin', 'te', 'tu', 'una', 'uno',
+        'vida', 'yo', 'con', 'mas', 'muy', 'nada', 'todo', 'soy', 'estoy',
+    },
+    'Portuguese': {
+        'voce', 'nao', 'sim', 'coracao', 'saudade', 'amor', 'mais', 'muito',
+        'com', 'sem', 'para', 'por', 'que', 'uma', 'um', 'meu', 'minha',
+        'noite', 'vida', 'tudo', 'nada', 'ela', 'ele', 'eu', 'nos', 'da', 'do',
+    },
+    'Italian': {
+        'amore', 'cuore', 'notte', 'vita', 'sono', 'che', 'non', 'con', 'per',
+        'una', 'uno', 'mio', 'mia', 'tu', 'io', 'noi', 'sempre', 'piu', 'cosa',
+        'della', 'questo', 'tutto', 'niente',
+    },
+    'French': {
+        'amour', 'coeur', 'nuit', 'vie', 'je', 'tu', 'nous', 'vous', 'avec',
+        'sans', 'pour', 'que', 'une', 'un', 'mon', 'ma', 'toujours', 'rien',
+        'tout', 'cest', 'pas', 'les', 'des', 'du', 'le',
+    },
+}
+# Back-compat alias (older code referenced SPANISH_HINTS directly).
+SPANISH_HINTS = STOPWORDS['Spanish']
 
 
 class SpotifyClient:
@@ -174,23 +214,69 @@ class SpotifyClient:
         if counts['arabic'] >= 2:
             return 'Arabic'
         
-        # Default to Latin-based
+        # Latin script: try langdetect first, fall back to stopword scoring.
         if counts['latin'] > 0:
-            text_lower = all_text.lower()
-            normalized = (
-                text_lower
-                .replace('á', 'a')
-                .replace('é', 'e')
-                .replace('í', 'i')
-                .replace('ó', 'o')
-                .replace('ú', 'u')
-                .replace('ü', 'u')
-            )
-            words = set(normalized.replace('-', ' ').replace('/', ' ').split())
-            if 'ñ' in text_lower or any(word in SPANISH_HINTS for word in words):
-                return 'Spanish'
-            return 'English'
-        
+            return self._detect_latin_language(all_text)
+
+        return 'Other'
+
+    def _detect_latin_language(self, all_text):
+        """Classify Latin-script text (es/en/pt/it/fr) — no blind English default.
+
+        Order matters. On short song metadata `langdetect` is wildly
+        overconfident (it tags "La Vie En Rose" as English 0.9999 and "XO" as
+        Somali), so trusting it first reintroduces the very misclassification
+        we're fixing. Instead:
+
+        1. High-precision stopword scoring across {es, pt, it, fr}. A unique
+           winner wins outright.
+        2. `langdetect` only as a fallback/tiebreaker, and only when it picks a
+           language we map (so garbage like Somali → 'Other', not English).
+           English has no stopword set, so it's reached only via this path with
+           high confidence.
+        3. Anything ambiguous → 'Other'. Never a blind English default.
+        """
+        text_lower = all_text.lower()
+
+        # 1. Stopword scoring (high precision for the target languages).
+        normalized = (
+            text_lower
+            .replace('á', 'a').replace('é', 'e').replace('í', 'i')
+            .replace('ó', 'o').replace('ú', 'u').replace('ü', 'u')
+            .replace('à', 'a').replace('è', 'e').replace('ì', 'i')
+            .replace('ò', 'o').replace('ç', 'c').replace('â', 'a')
+        )
+        words = set(normalized.replace('-', ' ').replace('/', ' ').split())
+
+        scores = {lang: len(words & stops) for lang, stops in STOPWORDS.items()}
+        if 'ñ' in text_lower:  # strong Spanish signal
+            scores['Spanish'] += 2
+
+        best_score = max(scores.values())
+        winners = [lang for lang, s in scores.items() if s == best_score]
+
+        # 2. Top mapped langdetect candidate (used only as fallback/tiebreak).
+        ld_lang = None
+        ld_prob = 0.0
+        if _LANGDETECT_OK and len(text_lower.replace(' ', '')) >= 8:
+            try:
+                for cand in detect_langs(all_text):
+                    if cand.lang in _LANG_CODE_TO_NAME:
+                        ld_lang = _LANG_CODE_TO_NAME[cand.lang]
+                        ld_prob = cand.prob
+                        break
+            except LangDetectException:
+                pass
+
+        if best_score > 0:
+            if len(winners) == 1:
+                return winners[0]
+            # Tie between languages → let langdetect break it if it agrees.
+            return ld_lang if ld_lang in winners else 'Other'
+
+        # 3. No stopword signal: rely on a confident, mapped langdetect guess.
+        if ld_lang and ld_prob >= _LANGDETECT_MIN_CONF:
+            return ld_lang
         return 'Other'
     
     def search_track(self, track_name, artist_name, limit=1):

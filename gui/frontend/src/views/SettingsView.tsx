@@ -9,6 +9,7 @@ export function SettingsView() {
   const [form, setForm] = useState({
     client_id: '', client_secret: '', playlist_id: '',
     default_fmt: 'mp3', default_quality: 320,
+    manual_review_enabled: false,
   })
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -16,11 +17,12 @@ export function SettingsView() {
   useEffect(() => {
     if (cfg) setForm(f => ({
       ...f,
-      client_id:       (cfg.spotify_client_id     as string) ?? '',
-      client_secret:   (cfg.spotify_client_secret as string) ?? '',
-      playlist_id:     (cfg.playlist_id           as string) ?? '',
-      default_fmt:     (cfg.default_fmt           as string) ?? 'mp3',
-      default_quality: (cfg.default_quality       as number) ?? 320,
+      client_id:              (cfg.spotify_client_id      as string)  ?? '',
+      client_secret:          (cfg.spotify_client_secret  as string)  ?? '',
+      playlist_id:            (cfg.playlist_id            as string)  ?? '',
+      default_fmt:            (cfg.default_fmt            as string)  ?? 'mp3',
+      default_quality:        (cfg.default_quality        as number)  ?? 320,
+      manual_review_enabled:  (cfg.manual_review_enabled  as boolean) ?? false,
     }))
   }, [cfg])
 
@@ -32,6 +34,7 @@ export function SettingsView() {
         download_path: '',
         auto_approve_threshold: 85,
         min_score_to_show: 40,
+        manual_review_enabled: form.manual_review_enabled,
       })
       mutate()
       toast('Credenciales guardadas', 'success')
@@ -112,6 +115,21 @@ export function SettingsView() {
               <option value={128}>128 kbps</option>
             </select>
           </div>
+        </div>
+
+        <div className="field">
+          <label className="toggle-row">
+            <span>
+              <strong>Revisión manual de fuente YouTube</strong>
+              <span className="hint">Cuando está activo, tracks con baja confianza de match (&lt;65%) muestran un modal para elegir la fuente manualmente. Si está desactivado, siempre se descarga el mejor resultado encontrado.</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={form.manual_review_enabled}
+              onChange={e => set('manual_review_enabled', e.target.checked)}
+              disabled={isLoading}
+            />
+          </label>
         </div>
 
         <div className="settings-actions">

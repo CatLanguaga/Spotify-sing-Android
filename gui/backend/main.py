@@ -1,6 +1,5 @@
 import os
 import sys
-import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -25,9 +24,8 @@ async def lifespan(app: FastAPI):
         missing = [k for k, v in deps.model_dump().items() if v is False and k != "ready"]
         print(f"[startup] WARNING: missing dependencies -> {', '.join(missing)}. "
               f"/api/download/direct will return 503 until installed.", flush=True)
-    # Skip browser launch when running inside Tauri (it manages the window itself).
-    if not os.environ.get("SPOTIFY_SYNC_TAURI"):
-        webbrowser.open("http://localhost:8000")
+    # En esta rama el frontend se sirve por Vite dev (http://localhost:5173).
+    # No auto-abrimos navegador desde el backend para no levantar la vista vieja del dist.
     yield
 
 

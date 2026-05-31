@@ -1,3 +1,5 @@
+import { normalizeLang } from '../api/langLabel'
+
 const LANG_COLORS: Record<string, { color: string; bg: string }> = {
   JP: { color: '#FF6B9D', bg: 'rgba(255,107,157,0.10)' },
   KR: { color: '#A29BFE', bg: 'rgba(162,155,254,0.10)' },
@@ -5,22 +7,16 @@ const LANG_COLORS: Record<string, { color: string; bg: string }> = {
   ES: { color: '#FDCB6E', bg: 'rgba(253,203,110,0.10)' },
   CN: { color: '#FF7675', bg: 'rgba(255,118,117,0.10)' },
   RU: { color: '#55EFC4', bg: 'rgba(85,239,196,0.10)' },
-}
-
-function detectLang(raw: string): string {
-  const s = raw.toUpperCase()
-  if (s.includes('JAPANESE') || s.includes('JP')) return 'JP'
-  if (s.includes('KOREAN') || s.includes('KR')) return 'KR'
-  if (s.includes('ENGLISH') || s.includes('EN')) return 'EN'
-  if (s.includes('SPANISH') || s.includes('ES')) return 'ES'
-  if (s.includes('CHINESE') || s.includes('CN')) return 'CN'
-  if (s.includes('RUSSIAN') || s.includes('RU')) return 'RU'
-  return 'EN'
+  PT: { color: '#00B894', bg: 'rgba(0,184,148,0.10)' },
+  IT: { color: '#E17055', bg: 'rgba(225,112,85,0.10)' },
+  FR: { color: '#6C5CE7', bg: 'rgba(108,92,231,0.10)' },
+  AR: { color: '#D63031', bg: 'rgba(214,48,49,0.10)' },
+  OTHER: { color: '#7A8290', bg: 'rgba(122,130,144,0.10)' },
 }
 
 export function LangBadge({ lang }: { lang: string }) {
-  const key = detectLang(lang)
-  const { color, bg } = LANG_COLORS[key] ?? LANG_COLORS.EN
+  const key = normalizeLang(lang)
+  const { color, bg } = LANG_COLORS[key] ?? LANG_COLORS.OTHER
   return (
     <span style={{
       color, background: bg,

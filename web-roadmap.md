@@ -19,9 +19,11 @@
 | 1 — Eliminar ADB | ✅ Completa | |
 | 2 — Backend download-to-browser | ✅ Completa | usa `pytubefix` en lugar de `yt-dlp` |
 | 3 — Frontend web-first | ✅ Completa | Cola/Sidebar/multi-select N/A por pivot single-page; paginación diferida a Fase 4 |
-| 4 — Range slider 50 tracks | ⚠️ Completa c/bugs | slider + integración OK; pendiente loop de fetches al elegir rango intermedio + chip EN en filtro |
-| 5 — UX Polish | ⏳ Parcial | |
-| 6 — Matching YouTube | ⏳ Pendiente | |
+| 4 — Paginación 50 tracks | ✅ Completa | slider reemplazado por paginador clásico (prev/next + números); offset/limit por página |
+| 5 — UX Polish | ✅ Completa | |
+| 6 — Matching YouTube | ✅ Completa | |
+| 6.5 — Metadatos completos | ✅ Completa | portada JPEG embebida; ID3v2.3; M4A covr; OPUS METADATA_BLOCK_PICTURE |
+| 6.6 — QoL: batch + paginación + idioma | ⏳ En progreso | descarga simultánea con manejo de errores; salto directo de página; filtro de idioma con langdetect |
 | 7 — SEO + estructura | ⏳ Pendiente | |
 | 8 — Features adicionales | 📋 Backlog priorizado | |
 | 9 — Arquitectura Docker | ⏳ Pendiente | pre-deploy |
@@ -112,40 +114,38 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 
 ---
 
-## Fase 4 — UX de visualización: límite + range slider dinámico
+## Fase 4 — UX de visualización: paginación por páginas (50 tracks/página)
 
 > Decisión de diseño confirmada (2026-05-26): pivot a single-page, sin cola persistente. Resultados inline, descarga directa. Ver `gui/design-demos/demo-singlepage.html`.
+> Rediseño (2026-05-30): range slider reemplazado por paginador clásico — más simple, sin ambigüedad de arrastre.
 
 ### Límite de 50 tracks por consulta
 
 - [x] Constante backend `MAX_TRACKS_PER_REQUEST = 50` en `src/config.py` o env var
 - [x] `GET /api/spotify/resolve?url=&offset=&limit=` — siempre `limit ≤ 50`
 - [x] Backend ignora `limit > 50` y aplica clamp silencioso
-- [x] Si `playlist.total > 50`: response incluye `total`, `returned`, `offset` — el frontend renderiza el slider
-- [x] Cache de metadata Spotify por `playlist_id` (TTL 10 min) para no repegar a Spotify API cuando el usuario mueve el slider
+- [x] Si `playlist.total > 50`: response incluye `total`, `returned`, `offset` — el frontend renderiza el paginador
+- [x] Cache de metadata Spotify por `playlist_id` (TTL 10 min)
 
-### Range slider dinámico (frontend)
+### Paginador (frontend) — `TrackPaginator.tsx`
 
-- [x] Componente `<TrackRangeSlider />` con 2 handles (from / to)
-- [x] Restricciones: `to - from ≤ 50`, `from ≥ 1`, `to ≤ playlist.total`
-- [x] Al mover un handle: si la ventana intenta crecer > 50, el handle opuesto se desplaza automáticamente manteniendo `width = 50` (modo "ventana deslizante")
-- [x] Modo "compactar": el usuario puede arrastrar el centro de la ventana para moverla completa sin cambiar el ancho
-- [x] Visual: barra horizontal con marks cada 10, ventana resaltada en verde Spotify, texto `Mostrando 51–100 de 247`
-- [x] Debounce 300 ms al refetch (`/api/spotify/resolve?offset=X&limit=Y`)
-- [x] Estado URL: `?range=51-100` para deep-link / share
-- [x] Botones rápidos: `[Primeras 50] [Siguientes 50] [Últimas 50]`
+- [x] Componente `<TrackPaginator />` reemplaza `<TrackRangeSlider />` (eliminado)
+- [x] Botones `← Anterior` / `Siguiente →` con disabled en extremos
+- [x] Números de página: si ≤ 7 páginas muestra todos; si > 7 usa ellipsis (`1 … 4 5 6 … 12`)
+- [x] Texto auxiliar: `Página X de Y · tracks A–B de C`
+- [x] Spinner inline durante carga de página
+- [x] `offset = (page - 1) * 50` — fetch a `/api/spotify/resolve?offset=N&limit=50` al cambiar página
+- [x] Tracks anteriores reemplazados en memoria — sin acumulación
+- [x] Debounce 200 ms + cancelación de requests in-flight (requestSeq)
+- [x] Estado URL: `?page=2` para deep-link / share
+- [x] Persistir última página en `localStorage` → `spotify-page:{id}`
 
 ### Edge cases
 
-- [x] Playlist ≤ 50: ocultar slider, mostrar todo
-- [x] Track individual / álbum < 50: sin slider
+- [x] Playlist ≤ 50: ocultar paginador, mostrar todo
+- [x] Track individual / álbum < 50: sin paginador
 - [x] Loading skeleton mientras refetch (no parpadeo de tabla)
-- [x] Persistir última ventana en `localStorage` por `playlist_id`
-
-### 🐛 Bugs conocidos / pendientes Fase 4
-
-- [x] **Selección de rango intermedio dispara loop de peticiones + resets** — corregido 2026-05-29: `PlaylistCard.tsx` separa el rango solicitado/cargado de la cantidad real devuelta por Spotify, así `returned < limit` ya no re-dispara el fetch indefinidamente.
-- [x] **Filtro por idioma falta EN** — corregido 2026-05-29: `track`, `album` y `playlist` usan el detector de idioma compartido; el default latino ahora clasifica como `English` salvo señales básicas de español.
+- [x] Página fuera de rango: clamp automático a `[1, totalPages]`
 
 ---
 
@@ -161,7 +161,7 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 
 - [x] Toast notifications para: track agregado a cola, descarga lista, error
 - [x] Skeleton loaders en playlist view mientras carga
-- [ ] Animación de progreso real (parsear `[X/Y]` del output de pytubefix/ffmpeg via WebSocket) — pendiente técnico: `download_audio` aún corre sin callbacks/progreso granular y el WebSocket actual sólo transmite logs de scripts legacy.
+- [x] Animación de progreso real — `download_audio` acepta `on_progress` callback; pytubefix reporta 5-65% por bytes, ffmpeg `-progress pipe:1` reporta 65-95%; SSE endpoint `GET /queue/{id}/progress`; frontend usa `EventSource` + barra indeterminate durante fase de resolución (Spotify+YT, ~3-7s).
 
 ### Responsive / Mobile
 
@@ -176,41 +176,113 @@ El flujo: el servidor descarga el archivo → el browser lo recibe automáticame
 
 ### Scoring del match
 
-- [ ] Algoritmo de score considera: duración (±3s del Spotify duration), artista normalizado (lowercase, sin features), título normalizado (quitar `(Official Video)`, `[MV]`, `Lyric Video`, etc.), año, canal verificado
-- [ ] Threshold mínimo: si `score < 65` no auto-descarga, abre modal de revisión con top 3 alternativas
-- [ ] Threshold óptimo: si `score ≥ 90` auto-descarga sin confirmación
+- [x] Algoritmo de score considera: duración (±3s del Spotify duration), artista normalizado (lowercase, sin features), título normalizado (quitar `(Official Video)`, `[MV]`, `Lyric Video`, etc.), año, canal verificado
+- [x] Threshold mínimo: si `score < 65` y `manual_review_enabled=true` → modal de revisión con top 3 alternativas; si `false` → auto-descarga mejor resultado
+- [x] Threshold óptimo: si `score ≥ 90` en primera query → early exit sin cascada completa
 
 ### Estrategias de búsqueda
 
-- [ ] Query primaria: `"Artista" "Título" topic` (canales "Topic" de YouTube son re-uploads oficiales del label, suelen ser exactos)
-- [ ] Fallback 1: `"Artista" "Título" audio` (excluye videos)
-- [ ] Fallback 2: `"Artista" "Título" lyrics` (suele ser audio limpio)
-- [ ] Fallback 3: query simple sin comillas
-- [ ] Filtrar resultados con duración fuera de ±10s del track Spotify
-- [ ] Penalizar canales con palabras flag: `cover`, `remix`, `karaoke`, `8d`, `slowed`, `sped up`, `nightcore`, `live` (a menos que el track Spotify ya sea live)
+- [x] Query primaria: `"Artista" "Título" topic` (canales "Topic" de YouTube son re-uploads oficiales del label, suelen ser exactos)
+- [x] Fallback 1: `"Artista" "Título" audio` (excluye videos)
+- [x] Fallback 2: `"Artista" "Título" lyrics` (suele ser audio limpio)
+- [x] Fallback 3: query simple sin comillas
+- [x] Filtrar resultados con duración fuera de ±10s del track Spotify
+- [x] Penalizar canales con palabras flag: `cover`, `remix`, `karaoke`, `8d`, `slowed`, `sped up`, `nightcore`, `live` (a menos que el track Spotify ya sea live)
 
 ### Manual override
 
-- [ ] Botón "Buscar manualmente" en cada track → modal con search bar YouTube + preview embeds
-- [ ] Botón "Pegar URL de YouTube" para forzar source específico
-- [ ] Persistir overrides exitosos por `spotify_id` en cache local (si el usuario corrigió un track, recordarlo)
+- [x] Botón "🔍 Buscar manualmente" en cada track — solo visible cuando `manual_review_enabled=true` → `ManualSearchModal` con search bar YouTube + lista de candidatos con thumbnail/score
+- [x] Sección "Pegar URL de YouTube" en el modal para forzar source específico
+- [x] Persistir overrides por `spotify_id` en `localStorage` — próxima descarga del mismo track usa el override directamente sin buscar
 
 ### Caché y resiliencia
 
-- [ ] Caché de búsqueda YouTube por `spotify_id` — si 5 usuarios piden el mismo track, no buscamos 5 veces
-- [ ] Detección de geo-restricción YouTube: si el track falla por región, sugerir VPN o source alternativo
+- [x] Caché in-memory de búsqueda YouTube por `spotify_id` (TTL 1h) — `_YT_CACHE` en `download.py`
+- [x] Detección de geo-restricción YouTube: error en `_bg_download` detecta "geo" / "not available" → estado `geo_restricted` vía SSE
 
 ### Calidad del audio source
 
-- [ ] Preferir streams con bitrate más alto disponible (ya implementado parcialmente)
-- [ ] Si el bitrate del source < bitrate destino solicitado: warning visible al usuario
-- [ ] Detectar y rechazar streams "music" cortos (intros, sketches) por duración
+- [x] Preferir streams con bitrate más alto disponible (ya implementado)
+- [~] Warning si bitrate del source < bitrate solicitado — diferido (requiere pre-inspección del stream antes de descargar)
+- [~] Detectar streams cortos (intros/sketches) — cubierto parcialmente por filtro de duración ±10s
 
 ### Metadatos Spotify en archivos descargados
 
-- [ ] Escribir tags directos desde Spotify en el audio final: título, artistas, álbum, número de track, año/fecha, portada del álbum, `spotify_id` y URL de Spotify como comentario/tag externo.
-- [ ] Incluir imagen/metadata de artista cuando esté disponible desde Spotify.
-- [ ] Usar portada de YouTube sólo como fallback si Spotify no entrega cover art.
+- [x] Escribir tags desde Spotify: título, artistas, álbum, número de track, año/fecha, portada del álbum, `spotify_id` y `spotify_url` como tag COMM
+- [~] Imagen/metadata de artista adicional — cover art del álbum ya se escribe; metadata de artista separada no disponible en API básica
+- [x] Portada de YouTube como fallback si Spotify no entrega cover art
+
+---
+
+## Fase 6.5 — Metadatos completos: portada visible en explorador de archivos
+
+> Problema: la portada de Spotify se escribe en los tags, pero solo la leen reproductores (VLC, etc.). El Explorador de Windows y Finder no la muestran como miniatura del archivo.
+
+### Causa raíz
+
+El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo renderice:
+
+- **MP3**: tag `APIC` con `picture_type=3` (Cover Front), mime `image/jpeg`, imagen embebida como bytes dentro del ID3v2 header. Windows Shell Extension lee esto si el archivo tiene ID3v2.3 o ID3v2.4.
+- **M4A/MP4**: átomo `covr` dentro del container MP4 — distinto mecanismo. `mutagen.MP4` usa `MP4Cover`.
+- **OPUS/OGG**: `METADATA_BLOCK_PICTURE` en Vorbis comments — base64 encoded.
+
+### Tareas
+
+- [x] Verificar que `mutagen` escribe el tag `APIC` con `picture_type=3` (Cover Front) y `encoding=3` (UTF-8) — no `picture_type=0` (Other), que Windows ignora para thumbnails.
+- [x] Para MP3: forzar ID3 versión 2.3 (`v2_version=3`) al guardar — Windows Explorer no soporta ID3v2.4 para thumbnails.
+- [x] Para M4A: usar `mutagen.mp4.MP4Cover` con `imageformat=MP4Cover.FORMAT_JPEG` al escribir el átomo `covr`.
+- [x] Para OPUS: convertir cover art a `METADATA_BLOCK_PICTURE` base64 en Vorbis comments.
+- [x] Descargar portada Spotify en JPEG (no WebP) — el Shell Extension de Windows no decodifica WebP en thumbnails.
+- [x] Si la imagen de Spotify viene en formato distinto a JPEG, convertir con `Pillow` antes de embeber.
+- [ ] Test manual: archivo descargado → ver thumbnail en Explorador de Windows sin abrir el archivo.
+- [ ] Test en Finder (macOS) si aplica al deploy.
+
+### Notas técnicas
+
+- Spotify entrega covers en `https://i.scdn.co/image/...` como JPEG normalmente, pero verificar content-type antes de asumir.
+- `mutagen.id3.APIC` acepta `data=bytes` — descargar con `requests.get(cover_url).content` y pasar directo.
+- Windows Explorer usa el **Windows Shell Extension para MP3** que está deshabilitado en Windows 11 por defecto si el archivo no tiene el thumbnail cacheado. Forzar refresh con `ie4uinit.exe -show` o simplemente abrir una carpeta nueva.
+
+---
+
+## Fase 6.6 — Calidad de vida: batch download, navegación de páginas, filtro de idioma
+
+> Mejoras de UX pedidas tras uso real. Decisiones: batch = individual (default) + ZIP opcional; idioma = `langdetect` primario + heurística de respaldo.
+
+### Descarga simultánea de las 50 visibles + manejo de errores
+
+> Problema detectado: "Descargar todo" falla. Causas:
+> 1. Frontend usa `window.location.href` por track (`TrackRow.tsx:95`) — navegación única; 50 asignaciones rápidas se cancelan, solo baja la última.
+> 2. Backend: 50 hilos `_bg_download` hacen read-modify-write sobre `queue.json` sin lock (`queue.py:44-60`) → lost-update → `local_path` se pierde → `/file` devuelve `{"detail":"File not found — download it first."}`.
+> 3. Concurrencia ilimitada satura red/CPU.
+
+- [x] Backend: lock `_QUEUE_LOCK` + helper atómico `_patch_item(item_id, **fields)` (load→mutar→save bajo lock) en `queue.py`; `_bg_download` lo usa en vez de `_load()`/`_update_item`
+- [x] Backend: `Semaphore(MAX_CONCURRENT_DOWNLOADS=3)` en el spawn de hilos (`download.py`) — encola las 50, corren N a la vez
+- [x] Frontend: reemplazar `window.location.href` por helper `triggerBrowserDownload(url)` (anchor `<a download>` + click) → permite múltiples descargas concurrentes. Extraer a `api/download.ts`
+- [x] Frontend: orquestación batch en `PlaylistCard` con pool (concurrencia 3-4); al recibir `onStateChange` despacha el siguiente — reemplaza el stagger `trigger + i*180ms`
+- [x] Manejo de errores: track en `error` → retry automático hasta 2 veces; batch NO se detiene por un fallo
+- [x] Resumen final: toast `N descargadas · M con error` + botón "Reintentar fallidas" (reencola solo las `error`)
+- [x] ZIP opcional: endpoint `POST /api/download/batch` (recibe `spotify_ids[]`, fmt, quality) → job_id, descarga + `zipfile`; SSE `…/batch/{job_id}/progress`; `GET …/batch/{job_id}/zip` (`FileResponse` + cleanup); botón "Descargar ZIP" en header del card
+- [x] Sanitizar nombres dentro del zip (colisiones / CJK)
+
+### Navegación de páginas — salto directo
+
+> `TrackPaginator.tsx` solo tiene prev/next + números con ellipsis. Saltar a la página 27 exige clickear una por una.
+
+- [x] Input numérico "Ir a página" + botón "Ir" dentro de `.paginator-controls` (`TrackPaginator.tsx`)
+- [x] `min=1 max=totalPages`; Enter o click → clamp `[1, totalPages]` → `onPageChange(n)`
+- [x] Estilos `.paginator-jump` replicando `.paginator-page` (36px, `1px solid var(--rule)`, radius 8px) en `index.css`
+- [x] Reusa flujo existente de fetch/offset/URL `?page=`/localStorage — sin cambios en esa capa
+
+### Filtro de idioma — corregir misclasificación
+
+> Problema: español clasificado como inglés. `_detect_language_smart` (`src/spotify_client.py:113-194`) solo detecta ES por `ñ` o set chico de stopwords; si no matchea → default inglés. Frontend además hace default a `'EN'` (`LangBadge.tsx:18`).
+
+- [x] Backend: mantener detección por script para no-latino (CJK, hiragana/katakana, hangul, cirílico, árabe)
+- [x] Backend: para texto latino usar `langdetect.detect_langs(title+artist+album)`; si confianza ≥ umbral (~0.85) y código en {es,en,pt,it,fr} → mapear a nombre
+- [x] Backend: fallback heurístico cuando langdetect tiene baja confianza o texto corto — stopwords ampliados es/pt/it/fr con scoring (gana el de más matches), sin default ciego a inglés; empate/cero → "Other"
+- [x] Backend: `DetectorFactory.seed = 0` (langdetect no-determinista); añadir `langdetect` a `requirements.txt`
+- [x] Frontend: quitar default `'EN'` → `'OTHER'` en `LangBadge.tsx`, `TrackRow.tsx`, `PlaylistCard.tsx`; añadir PT/IT/FR. Mapeo extraído a util compartido `api/langLabel.ts`
 
 ---
 
