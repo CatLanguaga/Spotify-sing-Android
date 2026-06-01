@@ -337,9 +337,9 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 - [ ] **Concurrencia configurable** — descargas paralelas (default 3, max 5) ajustable por user
 - [ ] **Resume de descargas**: si yt-dlp/pytubefix falla a mitad, reanudar desde byte X (cuando el source lo permite)
 - [ ] **Hash check del audio**: SHA256 del archivo descargado mostrado, para verificar integridad
-- [ ] **ZIP download** del lote completo (mencionado en demo, falta implementar): zip server-side + stream al browser
+- [x] **ZIP download** del lote completo (mencionado en demo, falta implementar): zip server-side + stream al browser
 - [ ] **Drag & drop URL** sobre el input grande del hero
-- [ ] **Detección automática de paste**: cubierto/priorizado en Fase 5 como auto-búsqueda al ingresar URL válida
+- [x] **Detección automática de paste**: cubierto/priorizado en Fase 5 como auto-búsqueda al ingresar URL válida
 - [ ] **Keyboard shortcuts**: `Cmd/Ctrl+V` desde cualquier parte, `Enter` para buscar, `D` para descargar todo
 - [ ] **Dark mode toggle** con `prefers-color-scheme` por defecto
 - [ ] **i18n ES/EN** mínimo — JSON de strings, switch en footer
