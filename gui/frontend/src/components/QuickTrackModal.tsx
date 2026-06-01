@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { API_BASE, api } from '../api/client'
+import { triggerBrowserDownload } from '../api/download'
 import type { SpotifyTrack, TrackDownloadResponse } from '../api/types'
 import { useToast } from './toast-context'
 
@@ -21,6 +22,10 @@ export function QuickTrackModal({ track, onClose }: Props) {
   const [quality, setQuality] = useState(320)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const esRef = useRef<EventSource | null>(null)
+
+  // Close any open SSE stream when the modal unmounts.
+  useEffect(() => () => { esRef.current?.close() }, [])
 
   const coverStyle = track.album_art_url
     ? { backgroundImage: `url(${track.album_art_url})` }
@@ -31,14 +36,51 @@ export function QuickTrackModal({ track, onClose }: Props) {
     setLoading(true)
     toast('Track agregado a descarga', 'info')
     try {
+      // /download/track is non-blocking: returns item_id immediately and runs
+      // the actual download in a background thread. We must wait for the SSE
+      // 'done' event before hitting /file, otherwise local_path isn't set yet
+      // and the server returns 404 "File not found — download it first.".
       const res = await api.post<TrackDownloadResponse>('/download/track', {
         spotify_id: track.spotify_id,
         fmt,
         quality,
       })
-      toast('Descarga lista', 'success')
-      window.location.href = `${API_BASE}/queue/${res.item_id}/file`
-      onClose()
+
+      if (res.needs_review) {
+        // Low-confidence match needs manual selection — not available in this
+        // modal. Send the user to the track table flow.
+        toast('Coincidencia dudosa — usa la tabla para elegir la fuente', 'error')
+        setLoading(false)
+        return
+      }
+
+      const es = new EventSource(`${API_BASE}/queue/${res.item_id}/progress`)
+      esRef.current = es
+
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data) as { state?: string; error?: string }
+          if (data.state === 'done') {
+            es.close()
+            toast('Descarga lista', 'success')
+            triggerBrowserDownload(`${API_BASE}/queue/${res.item_id}/file`)
+            onClose()
+          } else if (data.state === 'error') {
+            es.close()
+            const msg = data.error === 'geo_restricted'
+              ? 'Restringido por región — intenta con VPN'
+              : (data.error ?? 'Error al descargar')
+            toast(msg, 'error')
+            setLoading(false)
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      es.onerror = () => {
+        es.close()
+        toast('Conexión perdida', 'error')
+        setLoading(false)
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Error al descargar', 'error')
       setLoading(false)
