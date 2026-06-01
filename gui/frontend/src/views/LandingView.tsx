@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { HeroSearch } from '../components/HeroSearch'
-import { PlaylistCard } from '../components/PlaylistCard'
-import { QuickTrackModal } from '../components/QuickTrackModal'
 import { TutorialSection } from '../components/TutorialSection'
 import { useToast } from '../components/toast-context'
 import type { ResolvedPayload, SpotifyTrack } from '../api/types'
+
+const PlaylistCard = lazy(() =>
+  import('../components/PlaylistCard').then(module => ({ default: module.PlaylistCard })),
+)
+
+const QuickTrackModal = lazy(() =>
+  import('../components/QuickTrackModal').then(module => ({ default: module.QuickTrackModal })),
+)
 
 function ResultsSkeleton() {
   return (
@@ -39,12 +45,23 @@ function ResultsSkeleton() {
   )
 }
 
-export function LandingView() {
+interface LandingViewProps {
+  focusSection?: 'tutorial' | 'faq'
+}
+
+export function LandingView({ focusSection }: LandingViewProps) {
   const [payload, setPayload] = useState<ResolvedPayload | null>(null)
   const [sourceUrl, setSourceUrl] = useState('')
   const [searching, setSearching] = useState(false)
   const [quickTrack, setQuickTrack] = useState<SpotifyTrack | null>(null)
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (!focusSection || payload || quickTrack || searching) return
+    window.setTimeout(() => {
+      document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }, [focusSection, payload, quickTrack, searching])
 
   return (
     <>
@@ -66,8 +83,10 @@ export function LandingView() {
       />
 
       {searching && !payload && !quickTrack && <ResultsSkeleton />}
-      {payload && <PlaylistCard payload={payload} sourceUrl={sourceUrl} />}
-      {quickTrack && <QuickTrackModal track={quickTrack} onClose={() => setQuickTrack(null)} />}
+      <Suspense fallback={null}>
+        {payload && <PlaylistCard payload={payload} sourceUrl={sourceUrl} />}
+        {quickTrack && <QuickTrackModal track={quickTrack} onClose={() => setQuickTrack(null)} />}
+      </Suspense>
 
       {!payload && !quickTrack && !searching && <TutorialSection />}
     </>

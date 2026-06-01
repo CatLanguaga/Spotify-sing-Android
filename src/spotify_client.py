@@ -2,6 +2,9 @@
 Spotify API client for fetching playlist tracks with full metadata
 Improved language detection based on artist and all available text
 """
+import re
+import unicodedata
+
 import spotipy
 import requests
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -28,19 +31,65 @@ _LANG_CODE_TO_NAME = {
 }
 # Min confidence to trust langdetect's top guess for short metadata strings.
 _LANGDETECT_MIN_CONF = 0.85
+_STOPWORD_MIN_SCORE = 2
+
+GENRE_LANGUAGE_HINTS = {
+    'Spanish': {
+        'bachata', 'cumbia', 'corridos', 'dominican', 'latin hip hop',
+        'latin pop', 'latin rock', 'latino', 'mexican', 'musica mexicana',
+        'puerto rican', 'reggaeton', 'regional mexican', 'salsa',
+        'spanish pop', 'trap latino', 'urbano latino',
+    },
+    'Portuguese': {
+        'bossa nova', 'brasil', 'brazil', 'brazilian', 'forro',
+        'funk carioca', 'mpb', 'pagode', 'sertanejo',
+    },
+    'Italian': {'italian'},
+    'French': {'french', 'francais', 'francophone'},
+    'Korean': {'k-pop', 'korean'},
+    'Japanese/Chinese': {
+        'anime', 'j-pop', 'j-rock', 'japanese', 'otacore', 'vocaloid',
+    },
+}
 
 # Expanded stopword sets for the fallback heuristic (scoring, not first-match).
 STOPWORDS = {
+    'English': {
+        'a', 'all', 'am', 'and', 'another', 'are', 'be', 'been', 'blue',
+        'baby', 'birthday', 'bones', 'boy', 'bridges', 'burning', 'cheap',
+        'day', 'dear', 'deeds', 'did', 'didnt', 'dirty', 'diver', 'do',
+        'does', 'done', 'dont', 'dragons', 'dust', 'fire', 'for', 'gangstas', 'get', 'girl',
+        'god', 'gotta', 'have', 'heaven', 'hell', 'holy', 'i', 'in', 'is',
+        'idle', 'imagine', 'it', 'its', 'kindness', 'life', 'little', 'love', 'lucille',
+        'lucky', 'man', 'me', 'mirror', 'my', 'of', 'on', 'one', 'our',
+        'paradise', 'piano', 'skeletons', 'sky', 'someday', 'start', 'teen',
+        'tenacious', 'tenderness', 'the', 'to', 'train', 'tribute', 'try', 'up', 'us',
+        'wake', 'want', 'was', 'we', 'were', 'whats', 'with', 'without',
+        'woman', 'world', 'you', 'your',
+    },
     'Spanish': {
         'amor', 'baila', 'bailando', 'beso', 'cancion', 'corazon', 'contigo',
         'de', 'del', 'el', 'ella', 'eres', 'esta', 'la', 'las', 'lo', 'los',
         'mi', 'noche', 'para', 'por', 'que', 'sin', 'te', 'tu', 'una', 'uno',
         'vida', 'yo', 'con', 'mas', 'muy', 'nada', 'todo', 'soy', 'estoy',
+        'ahi', 'alma', 'amiga', 'amigo', 'aqui', 'ayer', 'bachata',
+        'bailar', 'bebe', 'bien', 'calle', 'cielo', 'como', 'cuando',
+        'dame', 'diablo', 'dime', 'dios', 'donde', 'duro', 'feliz',
+        'gasolina', 'hasta', 'hombre', 'hoy', 'llora', 'llorar', 'llorando',
+        'loca', 'loco', 'mal', 'manana', 'me', 'mis', 'mujer', 'nunca',
+        'perreo', 'quiero', 'quieres', 'quiere', 'rumba', 'se', 'si',
+        'su', 'sus', 'triste', 'tus', 'agua', 'al', 'carnaval', 'chino',
+        'amigos', 'arbol', 'decir', 'dia', 'entrevista', 'infinito',
+        'ininteligible', 'inmortal', 'luna', 'ni', 'nos', 'podiamos', 'quien',
+        'realidad', 'revoloteando', 'roja', 'ser', 'siquiera', 'soledad',
+        'suaves', 'susurros', 'veremos', 'volverte',
+        'viejos', 'viaje',
     },
     'Portuguese': {
         'voce', 'nao', 'sim', 'coracao', 'saudade', 'amor', 'mais', 'muito',
         'com', 'sem', 'para', 'por', 'que', 'uma', 'um', 'meu', 'minha',
         'noite', 'vida', 'tudo', 'nada', 'ela', 'ele', 'eu', 'nos', 'da', 'do',
+        'amigos', 'milhao',
     },
     'Italian': {
         'amore', 'cuore', 'notte', 'vita', 'sono', 'che', 'non', 'con', 'per',
@@ -50,11 +99,23 @@ STOPWORDS = {
     'French': {
         'amour', 'coeur', 'nuit', 'vie', 'je', 'tu', 'nous', 'vous', 'avec',
         'sans', 'pour', 'que', 'une', 'un', 'mon', 'ma', 'toujours', 'rien',
-        'tout', 'cest', 'pas', 'les', 'des', 'du', 'le',
+        'tout', 'cest', 'pas', 'les', 'des', 'du', 'le', 'tous', 'garcons',
+        'filles',
     },
 }
 # Back-compat alias (older code referenced SPANISH_HINTS directly).
 SPANISH_HINTS = STOPWORDS['Spanish']
+
+
+def _strip_accents(text):
+    return ''.join(
+        char for char in unicodedata.normalize('NFKD', text)
+        if not unicodedata.combining(char)
+    )
+
+
+def _tokenize(text):
+    return set(re.findall(r"[a-z0-9]+", _strip_accents(text.lower().replace("'", ""))))
 
 
 class SpotifyClient:
@@ -100,6 +161,17 @@ class SpotifyClient:
                 offset=offset,
                 limit=limit
             )
+
+            artist_ids = []
+            for item in results['items']:
+                track = item.get('track')
+                if not track:
+                    continue
+                artist_ids.extend(
+                    artist.get('id') for artist in track.get('artists', [])
+                    if artist.get('id')
+                )
+            genres_by_artist = self._get_artist_genres(artist_ids)
             
             tracks = []
             for item in results['items']:
@@ -122,13 +194,19 @@ class SpotifyClient:
                                 break
                         if not album_art_url:
                             album_art_url = images[0]['url']
-                    
+                    artist_genres = sorted({
+                        genre
+                        for a in track.get('artists', [])
+                        for genre in genres_by_artist.get(a.get('id'), [])
+                    })
+
                     # Improved language detection
-                    # Check: track name, album name, ALL artists
+                    # Check: track name, album name, ALL artists, and artist genres.
                     language = self._detect_language_smart(
                         track['name'], 
                         album_name, 
-                        all_artists
+                        all_artists,
+                        artist_genres,
                     )
                     
                     tracks.append({
@@ -149,15 +227,43 @@ class SpotifyClient:
         except Exception as e:
             print(f"Error fetching playlist tracks: {e}")
             return None
+
+    def _get_artist_genres(self, artist_ids):
+        """Fetch Spotify artist genres in batches. Missing genres are harmless."""
+        if not self.sp:
+            return {}
+
+        unique_ids = []
+        seen = set()
+        for artist_id in artist_ids:
+            if artist_id and artist_id not in seen:
+                seen.add(artist_id)
+                unique_ids.append(artist_id)
+
+        genres_by_artist = {}
+        try:
+            for start in range(0, len(unique_ids), 50):
+                batch = unique_ids[start:start + 50]
+                if not batch:
+                    continue
+                artists = self.sp.artists(batch).get('artists', [])
+                for artist in artists:
+                    if artist and artist.get('id'):
+                        genres_by_artist[artist['id']] = artist.get('genres') or []
+        except Exception as e:
+            print(f"Spotify artist genre lookup warning: {e}")
+
+        return genres_by_artist
     
-    def _detect_language_smart(self, track_name, album_name, artists):
+    def _detect_language_smart(self, track_name, album_name, artists, genres=None):
         """
         Smart language detection based on:
         1. Characters in track name, album name, and artist names
-        2. Artist names often reveal the language better than track titles
+        2. Artist names and genres often reveal the language better than titles
         """
         # Combine all text for analysis
         all_text = f"{track_name} {album_name} {artists}"
+        genres = genres or []
         
         # Count characters by script type
         counts = {
@@ -213,14 +319,30 @@ class SpotifyClient:
         
         if counts['arabic'] >= 2:
             return 'Arabic'
+
+        genre_lang = self._detect_language_from_genres(genres)
+        if genre_lang:
+            return genre_lang
         
         # Latin script: try langdetect first, fall back to stopword scoring.
         if counts['latin'] > 0:
-            return self._detect_latin_language(all_text)
+            return self._detect_latin_language(track_name, album_name, artists)
 
         return 'Other'
 
-    def _detect_latin_language(self, all_text):
+    def _detect_language_from_genres(self, genres):
+        genre_text = ' | '.join(genres).lower()
+        if not genre_text:
+            return None
+
+        for language, hints in GENRE_LANGUAGE_HINTS.items():
+            if language in {'French', 'Italian'}:
+                continue
+            if any(hint in genre_text for hint in hints):
+                return language
+        return None
+
+    def _detect_latin_language(self, track_name, album_name='', artists=''):
         """Classify Latin-script text (es/en/pt/it/fr) — no blind English default.
 
         Order matters. On short song metadata `langdetect` is wildly
@@ -228,25 +350,18 @@ class SpotifyClient:
         Somali), so trusting it first reintroduces the very misclassification
         we're fixing. Instead:
 
-        1. High-precision stopword scoring across {es, pt, it, fr}. A unique
-           winner wins outright.
+        1. High-precision stopword scoring across {en, es, pt, it, fr}. A
+           unique winner wins only after a minimum score.
         2. `langdetect` only as a fallback/tiebreaker, and only when it picks a
            language we map (so garbage like Somali → 'Other', not English).
-           English has no stopword set, so it's reached only via this path with
-           high confidence.
+           langdetect is trusted only with high confidence.
         3. Anything ambiguous → 'Other'. Never a blind English default.
         """
+        all_text = f"{track_name} {album_name} {artists}"
         text_lower = all_text.lower()
 
         # 1. Stopword scoring (high precision for the target languages).
-        normalized = (
-            text_lower
-            .replace('á', 'a').replace('é', 'e').replace('í', 'i')
-            .replace('ó', 'o').replace('ú', 'u').replace('ü', 'u')
-            .replace('à', 'a').replace('è', 'e').replace('ì', 'i')
-            .replace('ò', 'o').replace('ç', 'c').replace('â', 'a')
-        )
-        words = set(normalized.replace('-', ' ').replace('/', ' ').split())
+        words = _tokenize(all_text)
 
         scores = {lang: len(words & stops) for lang, stops in STOPWORDS.items()}
         if 'ñ' in text_lower:  # strong Spanish signal
@@ -268,15 +383,19 @@ class SpotifyClient:
             except LangDetectException:
                 pass
 
-        if best_score > 0:
+        if best_score >= _STOPWORD_MIN_SCORE:
             if len(winners) == 1:
                 return winners[0]
             # Tie between languages → let langdetect break it if it agrees.
             return ld_lang if ld_lang in winners else 'Other'
 
-        # 3. No stopword signal: rely on a confident, mapped langdetect guess.
+        # 3. Low/no stopword signal: rely on langdetect only where it is less
+        # likely to confuse Spanish song metadata with nearby Romance languages.
         if ld_lang and ld_prob >= _LANGDETECT_MIN_CONF:
-            return ld_lang
+            if ld_lang in {'English', 'Spanish'}:
+                return ld_lang
+            if scores.get(ld_lang, 0) >= _STOPWORD_MIN_SCORE:
+                return ld_lang
         return 'Other'
     
     def search_track(self, track_name, artist_name, limit=1):

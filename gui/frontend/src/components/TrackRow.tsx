@@ -243,9 +243,6 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
   const showQueued = !!queued && state === 'idle'
   const cls = `track ${state === 'downloading' ? 'downloading' : ''} ${state === 'done' ? 'done' : ''} ${state === 'error' ? 'err' : ''} ${showQueued ? 'queued' : ''}`
   const lang = track.language ? normalizeLang(track.language) : ''
-  const coverStyle = track.album_art_url
-    ? { backgroundImage: `url(${track.album_art_url})` }
-    : { background: 'linear-gradient(135deg,#1DB954,#0F0F11)' }
 
   let btnLabel = '⬇ Descargar'
   if (showQueued)              btnLabel = '⏳ En cola…'
@@ -257,7 +254,16 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
     <>
       <div className={cls.trim()}>
         <div className="idx">{index + 1}</div>
-        <div className="cover" style={coverStyle} />
+        <div className="cover">
+          {track.album_art_url && (
+            <img
+              src={track.album_art_url}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          )}
+        </div>
         <div className="tx">
           <div className="t">{track.name}</div>
           <div className="a">{track.all_artists || track.artist}</div>
@@ -269,6 +275,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
             className="dl-btn"
             onClick={download}
             title={errMsg ?? ''}
+            aria-label={`${btnLabel} ${track.name}`}
             disabled={state === 'downloading' || showQueued}
           >
             {btnLabel}
@@ -296,6 +303,9 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
             <div className="bar pending" />
           </div>
         )}
+        <span className="sr-only" aria-live="polite">
+          {track.name}: {btnLabel}
+        </span>
       </div>
 
       {reviewOpen && (

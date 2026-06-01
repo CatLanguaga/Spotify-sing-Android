@@ -63,7 +63,9 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
 
         {/* Search bar */}
         <div className="msm-search-bar">
+          <label className="sr-only" htmlFor="youtube-search-query">Buscar en YouTube</label>
           <input
+            id="youtube-search-query"
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -114,7 +116,9 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
         <div className="msm-paste-section">
           <div className="msm-paste-label">O pega una URL de YouTube directamente:</div>
           <div className="msm-paste-row">
+            <label className="sr-only" htmlFor="youtube-url-override">URL de YouTube</label>
             <input
+              id="youtube-url-override"
               value={pasteUrl}
               onChange={e => setPasteUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=…"

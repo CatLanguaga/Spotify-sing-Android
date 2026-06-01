@@ -27,10 +27,6 @@ export function QuickTrackModal({ track, onClose }: Props) {
   // Close any open SSE stream when the modal unmounts.
   useEffect(() => () => { esRef.current?.close() }, [])
 
-  const coverStyle = track.album_art_url
-    ? { backgroundImage: `url(${track.album_art_url})` }
-    : { background: 'linear-gradient(135deg,#1DB954,#0F0F11)' }
-
   const downloadNow = async () => {
     if (loading) return
     setLoading(true)
@@ -96,7 +92,16 @@ export function QuickTrackModal({ track, onClose }: Props) {
         aria-labelledby="quick-track-title"
         onMouseDown={e => e.stopPropagation()}
       >
-        <div className="quick-cover" style={coverStyle} />
+        <div className="quick-cover">
+          {track.album_art_url && (
+            <img
+              src={track.album_art_url}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          )}
+        </div>
         <div className="quick-body">
           <div className="kicker">Track detectado</div>
           <h2 id="quick-track-title">{track.name}</h2>

@@ -85,6 +85,7 @@ export function HeroSearch({ onResolved, onError, onLoadingChange }: Props) {
       <p className="sub">Pasa una URL de Spotify y guarda los archivos en tu dispositivo. Track, álbum o playlist completa — sin esperar, sin teléfono, sin instalar nada.</p>
 
       <form className="input-wrap" onSubmit={handleSubmit}>
+        <label className="sr-only" htmlFor="spotify-url">URL de Spotify</label>
         <span className="icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-1 1" />
@@ -92,6 +93,7 @@ export function HeroSearch({ onResolved, onError, onLoadingChange }: Props) {
           </svg>
         </span>
         <input
+          id="spotify-url"
           value={url}
           onChange={e => setUrl(e.target.value)}
           placeholder="https://open.spotify.com/playlist/..."

@@ -198,9 +198,6 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
                   : 'Spotify · Track'
 
   const coverUrl = activePayload.info.image_url || activePayload.tracks[0]?.album_art_url
-  const coverStyle = coverUrl
-    ? { backgroundImage: `url(${coverUrl})` }
-    : undefined
 
   // ─── batch pool ────────────────────────────────────────────────────────────
 
@@ -344,7 +341,16 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
     <section className="results" id="results">
       <div className="pl-card">
         <div className="pl-head">
-          <div className="pl-cover" style={coverStyle} />
+          <div className="pl-cover">
+            {coverUrl && (
+              <img
+                src={coverUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+          </div>
           <div className="pl-info">
             <div className="kicker">{kindLabel}{activePayload.info.owner ? ` · ${activePayload.info.owner}` : ''}</div>
             <h2>{activePayload.info.name || 'Sin nombre'}</h2>

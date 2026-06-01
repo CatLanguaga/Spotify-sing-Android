@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # SPOTIFY_SYNC_ROOT se setea desde app.py (desarrollo y exe).
 # Fallback para cuando se corre main.py directamente en dev.
@@ -15,6 +16,16 @@ if str(_ROOT) not in sys.path:
 
 from gui.backend.routes import config, download, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
+
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
 
 
 @asynccontextmanager
@@ -60,7 +71,7 @@ if stitch_dir.exists():
 # Must be mounted last so API routes take priority.
 frontend_dist = _ROOT / "gui" / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+    app.mount("/", SPAStaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 
 if __name__ == "__main__":

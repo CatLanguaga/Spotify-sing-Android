@@ -72,8 +72,9 @@ export function SettingsView() {
 
       <div className="settings-card">
         <div className="field">
-          <label>Spotify Client ID</label>
+          <label htmlFor="spotify-client-id">Spotify Client ID</label>
           <input
+            id="spotify-client-id"
             value={form.client_id}
             onChange={e => set('client_id', e.target.value)}
             placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -88,8 +89,9 @@ export function SettingsView() {
         </div>
 
         <div className="field">
-          <label>Spotify Client Secret</label>
+          <label htmlFor="spotify-client-secret">Spotify Client Secret</label>
           <input
+            id="spotify-client-secret"
             type="password"
             value={form.client_secret}
             onChange={e => set('client_secret', e.target.value)}
@@ -100,16 +102,16 @@ export function SettingsView() {
 
         <div className="field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <label>Formato por defecto</label>
-            <select value={form.default_fmt} onChange={e => set('default_fmt', e.target.value)}>
+            <label htmlFor="default-format">Formato por defecto</label>
+            <select id="default-format" value={form.default_fmt} onChange={e => set('default_fmt', e.target.value)}>
               <option value="mp3">mp3</option>
               <option value="m4a">m4a</option>
               <option value="opus">opus</option>
             </select>
           </div>
           <div>
-            <label>Calidad por defecto</label>
-            <select value={form.default_quality} onChange={e => set('default_quality', Number(e.target.value))}>
+            <label htmlFor="default-quality">Calidad por defecto</label>
+            <select id="default-quality" value={form.default_quality} onChange={e => set('default_quality', Number(e.target.value))}>
               <option value={320}>320 kbps</option>
               <option value={192}>192 kbps</option>
               <option value={128}>128 kbps</option>

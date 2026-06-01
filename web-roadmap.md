@@ -24,7 +24,8 @@
 | 6 — Matching YouTube | ✅ Completa | |
 | 6.5 — Metadatos completos | ✅ Completa | portada JPEG embebida; ID3v2.3; M4A covr; OPUS METADATA_BLOCK_PICTURE |
 | 6.6 — QoL: batch + paginación + idioma | ⏳ En progreso | descarga simultánea con manejo de errores; salto directo de página; filtro de idioma con langdetect |
-| 7 — SEO + estructura | ⏳ Pendiente | |
+| 7 — SEO + estructura | ⏳ En progreso | SEO 100, accesibilidad 100 y performance 95 en Lighthouse; LCP/CLS dentro de objetivo |
+| 7.5 — Contenido SEO + claridad | ⏳ En progreso | ampliar landing con que es la página, características, tutorial, límites y FAQs útiles |
 | 8 — Features adicionales | 📋 Backlog priorizado | |
 | 9 — Arquitectura Docker | ⏳ Pendiente | pre-deploy |
 | 10 — Deploy | ⏳ Pendiente | depende de Fase 9 |
@@ -288,39 +289,61 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ## Fase 7 — SEO + estructura de página
 
-> Pendiente: el usuario aportará skills específicas con detalles. Placeholder de items esperables abajo.
+> Implementación base completada con skills SEO. Lighthouse local actualizado (`logs/lighthouse-phase75-final.json`) en Edge headless: SEO 100, accesibilidad 100, best practices 100, performance 95.
 
 ### Meta + structured data
 
-- [ ] `<title>`, `<meta description>`, `<meta og:*>`, `<meta twitter:*>` dinámicos por vista
-- [ ] `<link rel="canonical">` correcto
-- [ ] JSON-LD `WebApplication` schema en home
-- [ ] `robots.txt` + `sitemap.xml` (rutas `/`, `/how-it-works`, `/faq`)
-- [ ] `<html lang="es">` + atributo `lang` por sección si hay multi-idioma
+- [x] `<title>`, `<meta description>`, `<meta og:*>`, `<meta twitter:*>` dinámicos por vista — `src/seo.ts`
+- [x] `<link rel="canonical">` correcto — HTML inicial + runtime por ruta
+- [x] JSON-LD `WebApplication` schema en home — HTML inicial + runtime
+- [x] `robots.txt` + `sitemap.xml` (rutas `/`, `/how-it-works`, `/faq`, `/settings`) — `public/`
+- [x] `<html lang="es">` + atributo `lang` por sección si hay multi-idioma
 
 ### Performance / Core Web Vitals
 
-- [ ] Lazy-load de covers (`loading="lazy"`)
-- [ ] Preconnect a Spotify CDN (`i.scdn.co`)
-- [ ] Fonts: `font-display: swap` + subset preload
-- [ ] Inline critical CSS, defer no-critical
-- [ ] LCP < 2.5s, CLS < 0.1, INP < 200ms — verificar con Lighthouse
+- [x] Lazy-load de covers (`loading="lazy"`)
+- [x] Preconnect a Spotify CDN (`i.scdn.co`)
+- [x] Fonts: stack del sistema sin fuente remota para evitar CLS por webfont
+- [~] Inline critical CSS, defer no-critical — font CSS diferido; app CSS sigue siendo render-blocking
+- [x] LCP < 2.5s, CLS < 0.1, INP < 200ms — Lighthouse: LCP 2.3s, CLS 0, TBT 60ms
 
 ### Estructura semántica
 
-- [ ] `<header>`, `<main>`, `<section>`, `<footer>` correctos
-- [ ] Heading hierarchy sin saltos (h1 → h2 → h3)
-- [ ] `<details>/<summary>` para FAQ (ya implementado en demo)
-- [ ] ARIA labels en botones de descarga e input principal
-- [ ] Focus rings visibles, navegación por teclado completa
-- [ ] Skip-link "Saltar al contenido"
+- [x] `<header>`, `<main>`, `<section>`, `<footer>` correctos
+- [x] Heading hierarchy sin saltos (h1 → h2 → h3)
+- [x] `<details>/<summary>` para FAQ (ya implementado en demo)
+- [x] ARIA labels en botones de descarga e input principal
+- [x] Focus rings visibles, navegación por teclado completa
+- [x] Skip-link "Saltar al contenido"
 
 ### Accesibilidad WCAG AA mínimo
 
-- [ ] Contraste texto ≥ 4.5:1 (verificar acento verde sobre blanco)
-- [ ] `prefers-reduced-motion` respetado en animaciones
-- [ ] `aria-live` para estados de descarga (lector de pantalla anuncia "descargado")
-- [ ] Labels asociados a todos los inputs (`<label for>`)
+- [x] Contraste texto ≥ 4.5:1 (verificar acento verde sobre blanco)
+- [x] `prefers-reduced-motion` respetado en animaciones
+- [x] `aria-live` para estados de descarga (lector de pantalla anuncia "descargado")
+- [x] Labels asociados a todos los inputs (`<label for>`)
+
+---
+
+## Fase 7.5 — Contenido SEO + claridad de la página
+
+> Enfoque: enriquecer la landing con contenido útil, explicativo y escaneable para usuarios y buscadores. Usar criterios de SEO content: respuesta directa, cobertura de intención, FAQs citables y lenguaje natural sin keyword stuffing.
+
+### Contenido principal
+
+- [x] Sección "Qué es esta página" con definición clara de Spotify Sing y su flujo real.
+- [x] Características principales: links de Spotify, metadata, formatos, playlists grandes, filtros y descarga por lote/ZIP.
+- [x] Tutorial de uso expandido con pasos accionables.
+- [x] Consciencia de límites: Spotify como metadata, audio desde fuentes públicas, paginación 50, credenciales y calidad dependiente del origen.
+- [x] Ocultar/quitar la FAQ pública "¿Es legal?" para no centrar la landing en riesgo legal.
+- [x] FAQ enriquecida con preguntas operativas: cuenta/API, fuente de audio, fallos de match, playlists grandes, idioma, formato y uso móvil.
+- [x] Copy SEO con frase objetivo "descargar música de Spotify" usada de forma natural.
+
+### Pendientes opcionales
+
+- [x] Añadir anclas visibles o navegación secundaria hacia Qué es, Características, Tutorial, Límites y FAQ.
+- [~] FAQPage schema no implementado: Google lo restringe a sitios gobierno/salud; se añadió `WebPage` schema con `hasPart` para secciones internas.
+- [ ] Ajustar copy final con dominio/canonical real cuando deje de ser localhost.
 
 ---
 

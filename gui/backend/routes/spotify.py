@@ -50,11 +50,30 @@ def _get_playlist_info_cached(client: SpotifyClient, playlist_id: str) -> dict:
     return info
 
 
-def _detect_track_language(client: SpotifyClient, track_name: str, album_name: str, artists: str) -> str:
+def _artist_genres_for_track(client: SpotifyClient, track: dict) -> list[str]:
+    genre_lookup = getattr(client, "_get_artist_genres", None)
+    if not genre_lookup:
+        return []
+    artist_ids = [a.get("id") for a in track.get("artists", []) if a.get("id")]
+    genres_by_artist = genre_lookup(artist_ids)
+    return sorted({
+        genre
+        for artist in track.get("artists", [])
+        for genre in genres_by_artist.get(artist.get("id"), [])
+    })
+
+
+def _detect_track_language(
+    client: SpotifyClient,
+    track_name: str,
+    album_name: str,
+    artists: str,
+    genres: Optional[list[str]] = None,
+) -> str:
     detector = getattr(client, "_detect_language_smart", None)
     if not detector:
         return "Other"
-    return detector(track_name, album_name, artists)
+    return detector(track_name, album_name, artists, genres or [])
 
 
 @router.get("/spotify/playlist/{playlist_id}")
@@ -139,6 +158,7 @@ def resolve_url(
         album = t.get("album", {}) or {}
         art = album.get("images", [{}])[0].get("url") if album.get("images") else None
         all_artists = ", ".join(a["name"] for a in t["artists"])
+        genres = _artist_genres_for_track(client, t)
         track = {
             "name":          t["name"],
             "artist":        t["artists"][0]["name"] if t["artists"] else "Unknown",
@@ -146,7 +166,7 @@ def resolve_url(
             "duration_ms":   t.get("duration_ms", 0),
             "album":         album.get("name", ""),
             "album_art_url": art,
-            "language":      _detect_track_language(client, t["name"], album.get("name", ""), all_artists),
+            "language":      _detect_track_language(client, t["name"], album.get("name", ""), all_artists, genres),
             "spotify_id":    t.get("id", ""),
             "year":          (album.get("release_date") or "")[:4],
             "track_number":  t.get("track_number", 1),
@@ -172,6 +192,7 @@ def resolve_url(
     tracks = []
     for t in album["tracks"]["items"]:
         all_artists = ", ".join(a["name"] for a in t["artists"])
+        genres = _artist_genres_for_track(client, t)
         tracks.append({
             "name":          t["name"],
             "artist":        t["artists"][0]["name"] if t["artists"] else "Unknown",
@@ -179,7 +200,7 @@ def resolve_url(
             "duration_ms":   t.get("duration_ms", 0),
             "album":         album.get("name", ""),
             "album_art_url": art,
-            "language":      _detect_track_language(client, t["name"], album.get("name", ""), all_artists),
+            "language":      _detect_track_language(client, t["name"], album.get("name", ""), all_artists, genres),
             "spotify_id":    t.get("id", ""),
             "year":          (album.get("release_date") or "")[:4],
             "track_number":  t.get("track_number", 1),
