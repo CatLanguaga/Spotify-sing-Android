@@ -82,6 +82,8 @@ class BatchDownloadRequest(BaseModel):
 class DependencyStatus(BaseModel):
     ffmpeg: bool
     pytubefix: bool
+    mutagen: bool
+    pillow: bool
     ready: bool
 
 
@@ -106,10 +108,22 @@ def _check_dependencies() -> DependencyStatus:
         pytubefix_ok = True
     except Exception:
         pytubefix_ok = False
+    try:
+        import mutagen  # noqa: F401
+        mutagen_ok = True
+    except Exception:
+        mutagen_ok = False
+    try:
+        import PIL  # noqa: F401
+        pillow_ok = True
+    except Exception:
+        pillow_ok = False
     return DependencyStatus(
         ffmpeg=ffmpeg_ok,
         pytubefix=pytubefix_ok,
-        ready=ffmpeg_ok and pytubefix_ok,
+        mutagen=mutagen_ok,
+        pillow=pillow_ok,
+        ready=ffmpeg_ok and pytubefix_ok and mutagen_ok and pillow_ok,
     )
 
 

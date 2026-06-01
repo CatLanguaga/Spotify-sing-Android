@@ -190,7 +190,8 @@ def _fetch_cover_as_jpeg(url: Optional[str]) -> Optional[bytes]:
     if not url:
         return None
     try:
-        response = requests.get(url, timeout=10)
+        with without_env_proxies():
+            response = requests.get(url, timeout=10)
         if response.status_code != 200:
             return None
         data = response.content
