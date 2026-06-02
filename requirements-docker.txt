@@ -1,0 +1,11 @@
+# Server-only deps for the Docker/Coolify single-container deploy.
+# Excludes pywebview (desktop GUI) and google-api-python-client (unused — audio
+# matching uses pytubefix, not the YouTube Data API).
+spotipy==2.23.0
+requests==2.31.0
+pytubefix>=6.0.0
+mutagen>=1.47.0
+Pillow>=10.0.0
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+langdetect>=1.0.9

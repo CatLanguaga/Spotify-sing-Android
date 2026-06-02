@@ -57,22 +57,41 @@ class ConfigManager:
         return self.default_download_folder
     
     def load_config(self):
-        """Load config from file"""
-        if not self.config_file.exists():
-            return None
-        
-        try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return None
-    
+        """Load config, with environment variables taking priority over the file.
+
+        Deploy (single-tenant) sets SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET and
+        optionally DOWNLOAD_DIR; these override anything stored in config.json so the
+        container has no writable-config dependency. For local dev (no env vars) the
+        on-disk config.json is used as before.
+        Returns a dict, or None when neither source provides credentials.
+        """
+        file_config = {}
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    file_config = json.load(f) or {}
+            except Exception:
+                file_config = {}
+
+        env_id = os.environ.get('SPOTIFY_CLIENT_ID')
+        env_secret = os.environ.get('SPOTIFY_CLIENT_SECRET')
+        env_download = os.environ.get('DOWNLOAD_DIR')
+
+        if env_id:
+            file_config['spotify_client_id'] = env_id
+        if env_secret:
+            file_config['spotify_client_secret'] = env_secret
+        if env_download:
+            file_config['download_folder'] = env_download
+
+        return file_config or None
+
     def has_config(self):
         """Check if config exists with Spotify credentials"""
         config = self.load_config()
         if not config:
             return False
-        
+
         # Only Spotify credentials are required now
         return all([
             config.get('spotify_client_id'),

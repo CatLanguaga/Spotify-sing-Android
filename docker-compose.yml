@@ -1,0 +1,32 @@
+# Single-container deploy: FastAPI serves the built React SPA at "/" and the API
+# at "/api" on port 8000. Coolify can consume this file directly, or you can point
+# Coolify at the Dockerfile and set env vars in its UI instead.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spotify-sync:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
+      DOWNLOAD_DIR: /app/downloads
+      SPOTIFY_QUEUE_FILE: /app/data/queue.json
+      MAX_TRACKS_PER_REQUEST: ${MAX_TRACKS_PER_REQUEST:-50}
+      SPOTIFY_MAX_CONCURRENT_DOWNLOADS: ${SPOTIFY_MAX_CONCURRENT_DOWNLOADS:-3}
+    volumes:
+      - downloads:/app/downloads
+      - data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  downloads:
+  data:

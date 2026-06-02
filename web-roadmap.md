@@ -26,8 +26,8 @@
 | 6.6 — QoL: batch + paginación + idioma | ⏳ En progreso | descarga simultánea con manejo de errores; salto directo de página; filtro de idioma con langdetect |
 | 7 — SEO + estructura | ⏳ En progreso | SEO 100, accesibilidad 100 y performance 95 en Lighthouse; LCP/CLS dentro de objetivo |
 | 7.5 — Contenido SEO + claridad | ⏳ En progreso | ampliar landing con que es la página, características, tutorial, límites y FAQs útiles |
-| 8 — Features adicionales | 📋 Backlog priorizado | |
-| 9 — Arquitectura Docker | ⏳ Pendiente | pre-deploy |
+| 8 — Features adicionales | ⏭️ Pospuesta | backlog; saltada para priorizar deploy |
+| 9 — Arquitectura Docker | ✅ Completa | single-container (multi-stage Dockerfile) + env vars + compose; pendiente build real con Docker |
 | 10 — Deploy | ⏳ Pendiente | depende de Fase 9 |
 
 ---
@@ -382,15 +382,21 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ## Fase 9 — Arquitectura Docker
 
-- [ ] `Dockerfile` para el backend FastAPI (Python 3.11-slim, instalar ffmpeg + pytubefix)
-- [ ] `Dockerfile` para el frontend React (build estático servido por nginx)
-- [ ] `docker-compose.yml` — servicios: `backend`, `frontend`, volumen `downloads/`
-- [ ] Variables de entorno en lugar de `~/.spotifytoyoutube/config.json`:
-  - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` en `.env`
-  - `DOWNLOAD_DIR` → `/app/downloads` (montado como volumen)
-- [ ] `ConfigManager` lee env vars con fallback a archivo (para dev local)
-- [ ] `.env.example` documentado
-- [ ] `README-docker.md` con instrucciones de 3 pasos: clone → copy .env → docker compose up
+> Implementada 2026-06-01 como **single-container** (decisión: más simple para Coolify; FastAPI ya monta el SPA en `/`). Credenciales **env-var single-tenant**.
+
+- [x] `Dockerfile` multi-stage: stage `node:20-slim` build del SPA → stage `python:3.11-slim` con `ffmpeg` que sirve `dist/` + `/api`
+- [~] ~~`Dockerfile` frontend nginx separado~~ — N/A: el backend FastAPI sirve el estático (un solo servicio/puerto 8000)
+- [x] `docker-compose.yml` — servicio `app`, volúmenes `downloads`/`data`, healthcheck
+- [x] Variables de entorno en lugar de `~/.spotifytoyoutube/config.json`:
+  - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` (prioridad sobre el archivo)
+  - `DOWNLOAD_DIR` → `/app/downloads`; `SPOTIFY_QUEUE_FILE` → `/app/data/queue.json`
+- [x] `ConfigManager.load_config()` lee env vars con prioridad y fallback al archivo (dev local)
+- [x] `requirements-docker.txt` ligero (sin pywebview / google-api-python-client)
+- [x] Frontend `API_BASE` relativo (`/api`) fuera de Vite dev — funciona tras proxy/SSL de Coolify
+- [x] `/health` endpoint + Docker `HEALTHCHECK`
+- [x] `.env.example` documentado
+- [x] `README-docker.md` con instrucciones de 3 pasos + sección Coolify
+- [ ] Build/run real con Docker (no disponible en esta máquina) — pendiente verificar en host con Docker o directo en Coolify
 
 ---
 

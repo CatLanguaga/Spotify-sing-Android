@@ -25,7 +25,7 @@ from src.downloader import download_audio
 router = APIRouter(tags=["queue"])
 
 QUEUE_FILE     = Path(os.environ.get("SPOTIFY_QUEUE_FILE", _ROOT / "data" / "queue.json"))
-LOCAL_TEMP_DIR = _ROOT / "temp_downloads"
+LOCAL_TEMP_DIR = Path(os.environ.get("DOWNLOAD_DIR", _ROOT / "temp_downloads"))
 _config        = ConfigManager()
 
 # Per-item download progress shared between background threads and the SSE endpoint.

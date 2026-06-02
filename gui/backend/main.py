@@ -63,6 +63,12 @@ app.include_router(download.router, prefix="/api")
 
 app.include_router(ws_router)
 
+
+@app.get("/health")
+def health():
+    """Liveness probe for Coolify/Docker healthcheck. No external deps checked."""
+    return {"status": "ok"}
+
 stitch_dir = _ROOT / "gui" / "stitch"
 if stitch_dir.exists():
     app.mount("/stitch", StaticFiles(directory=stitch_dir), name="stitch")

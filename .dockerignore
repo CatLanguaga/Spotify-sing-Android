@@ -1,0 +1,32 @@
+# Node / frontend
+**/node_modules
+gui/frontend/dist
+gui/frontend/src-tauri/target
+
+# Python
+**/__pycache__
+**/*.pyc
+.venv
+venv
+build
+dist
+
+# PyInstaller / desktop artifacts
+*.spec
+tools
+
+# Runtime data (don't bake into image — these are volumes)
+downloads
+temp_downloads
+data
+reports
+logs
+
+# Git / editor / docs
+.git
+.gitignore
+*.md
+!README-docker.md
+margen.png
+gui/design-demos
+gui/stitch

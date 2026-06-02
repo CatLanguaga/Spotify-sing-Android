@@ -1,7 +1,10 @@
+// In Vite dev (port 5173) the backend runs separately on 8000; everywhere else
+// (prod single-container, Coolify behind SSL/proxy) the SPA is served same-origin
+// by FastAPI, so a relative /api keeps working regardless of host/port/scheme.
 export const API_BASE =
-  window.location.port === '8000'
-    ? '/api'
-    : 'http://127.0.0.1:8000/api'
+  window.location.port === '5173'
+    ? 'http://127.0.0.1:8000/api'
+    : '/api'
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
