@@ -12,6 +12,7 @@ export interface SpotifyTrack {
   spotify_id: string
   year: string
   track_number: number
+  lyrics?: string
 }
 
 export interface QueueItem {
@@ -28,6 +29,7 @@ export interface QueueItem {
   local_path: string | null
   fmt: string
   quality: number
+  audio_sha256?: string | null
 }
 
 export interface SpotifyConfig {
@@ -36,6 +38,7 @@ export interface SpotifyConfig {
   playlist_id: string
   default_fmt: string
   default_quality: number
+  max_concurrent_downloads?: number
 }
 
 export type ResolvedKind = 'track' | 'album' | 'playlist'

@@ -6,6 +6,7 @@ import { normalizeLang } from '../api/langLabel'
 import type { SpotifyTrack, TrackDownloadResponse, YTCandidate } from '../api/types'
 import { useToast } from './toast-context'
 import { ManualSearchModal } from './ManualSearchModal'
+import { usePreferences } from '../preferences'
 
 type State = 'idle' | 'downloading' | 'done' | 'error'
 
@@ -49,17 +50,19 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
   const [progress, setProgress] = useState(0)
   const [indeterminate, setIndeterminate] = useState(false)
   const [errMsg, setErrMsg] = useState<string | null>(null)
+  const [sha256, setSha256] = useState<string | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewCandidates, setReviewCandidates] = useState<YTCandidate[]>([])
   const [pendingItemId, setPendingItemId] = useState<string | null>(null)
   const { toast } = useToast()
+  const { t } = usePreferences()
   const esRef = useRef<EventSource | null>(null)
   const triggerTimerRef = useRef<number | null>(null)
   const lastTrigger = useRef<number | undefined>(undefined)
   const lastReportedState = useRef<State | null>(null)
 
   // SWR dedupes this: all TrackRows share one cached config request
-  const { data: cfg } = useSWR<Record<string, unknown>>('/config', fetcher)
+  const { data: cfg } = useSWR<Record<string, unknown>>('/config/public', fetcher)
   const manualReview = (cfg?.manual_review_enabled as boolean) ?? false
 
   useEffect(() => {
@@ -76,21 +79,22 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
 
     es.onmessage = (e) => {
       try {
-        const data = JSON.parse(e.data) as { percent?: number; state?: string; error?: string }
+        const data = JSON.parse(e.data) as { percent?: number; state?: string; error?: string; sha256?: string }
         if (typeof data.percent === 'number') setProgress(data.percent)
+        if (data.sha256) setSha256(data.sha256)
         if (data.state === 'done') {
           resolved = true
           es.close()
           setProgress(100)
           setState('done')
-          toast('Descarga lista', 'success')
+          toast(t('trToastReady'), 'success')
           triggerBrowserDownload(`${API_BASE}/queue/${itemId}/file`)
         } else if (data.state === 'error') {
           resolved = true
           es.close()
           const msg = data.error === 'geo_restricted'
-            ? 'Restringido por región — intenta con VPN'
-            : (data.error ?? 'Error')
+            ? t('trGeoRestricted')
+            : (data.error ?? t('trError'))
           setProgress(0)
           setErrMsg(msg)
           setState('error')
@@ -104,9 +108,9 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
       es.close()
       setIndeterminate(false)
       setProgress(0)
-      setErrMsg('Conexión perdida')
+      setErrMsg(t('trToastConnLost'))
       setState('error')
-      toast('Conexión perdida', 'error')
+      toast(t('trToastConnLost'), 'error')
     }
   }
 
@@ -117,7 +121,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
       await api.post('/download/track/confirm', { item_id: itemId, youtube_url: youtubeUrl })
       startSSE(itemId)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error al confirmar'
+      const message = err instanceof Error ? err.message : t('trConfirmFailed')
       setProgress(0)
       setErrMsg(message)
       setState('error')
@@ -140,7 +144,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
     setErrMsg(null)
     setProgress(0)
     setIndeterminate(true)
-    toast('Track agregado a descarga', 'info')
+    toast(t('trToastAdded'), 'info')
 
     // Check localStorage for a known-good override
     const override = getOverride(track.spotify_id)
@@ -182,7 +186,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
     } catch (err) {
       esRef.current?.close()
       setIndeterminate(false)
-      const message = err instanceof Error ? err.message : 'Error'
+      const message = err instanceof Error ? err.message : t('trError')
       setProgress(0)
       setErrMsg(message)
       setState('error')
@@ -204,7 +208,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
     setErrMsg(null)
     setProgress(0)
     setIndeterminate(true)
-    toast('Resolviendo track…', 'info')
+    toast(t('trToastResolving'), 'info')
     try {
       const res = await api.post<TrackDownloadResponse>('/download/track', {
         spotify_id: track.spotify_id, fmt, quality,
@@ -214,7 +218,7 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
       await confirmWithUrl(res.item_id, url)
     } catch (err) {
       setIndeterminate(false)
-      const message = err instanceof Error ? err.message : 'Error'
+      const message = err instanceof Error ? err.message : t('trError')
       setProgress(0)
       setErrMsg(message)
       setState('error')
@@ -244,11 +248,11 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
   const cls = `track ${state === 'downloading' ? 'downloading' : ''} ${state === 'done' ? 'done' : ''} ${state === 'error' ? 'err' : ''} ${showQueued ? 'queued' : ''}`
   const lang = track.language ? normalizeLang(track.language) : ''
 
-  let btnLabel = '⬇ Descargar'
-  if (showQueued)              btnLabel = '⏳ En cola…'
-  if (state === 'downloading') btnLabel = '⏳ Descargando…'
-  if (state === 'done')        btnLabel = '✓ Descargado'
-  if (state === 'error')       btnLabel = '↻ Reintentar'
+  let btnLabel: string = t('trDownload')
+  if (showQueued)              btnLabel = t('trQueued')
+  if (state === 'downloading') btnLabel = t('trDownloading')
+  if (state === 'done')        btnLabel = t('trDownloaded')
+  if (state === 'error')       btnLabel = t('trRetry')
 
   return (
     <>
@@ -284,13 +288,18 @@ export function TrackRow({ track, index, fmt, quality, triggerAt, queued, onStat
             <button
               className="dl-btn-search"
               onClick={openManualSearch}
-              title="Buscar fuente manualmente"
-              aria-label="Buscar fuente de YouTube manualmente"
+              title={t('trSearchManual')}
+              aria-label={t('trSearchManualAria')}
             >
               🔍
             </button>
           )}
         </div>
+        {sha256 && (
+          <div className="hash-chip" title={sha256} aria-label={`SHA256 ${sha256}`}>
+            SHA256 {sha256.slice(0, 10)}
+          </div>
+        )}
         {state === 'downloading' && (
           <div className="progress-mini">
             {indeterminate

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { api } from '../api/client'
 import type { YTCandidate } from '../api/types'
+import { usePreferences } from '../preferences'
 
 interface Props {
   trackName: string
@@ -20,6 +21,7 @@ function fmtSec(s: number | null): string {
 }
 
 export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect, onClose }: Props) {
+  const { t } = usePreferences()
   const [query, setQuery] = useState(`${trackArtist} ${trackName}`.trim())
   const [pasteUrl, setPasteUrl] = useState('')
   const [results, setResults] = useState<YTCandidate[]>(candidates)
@@ -35,7 +37,7 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
       const data = await api.get<YTCandidate[]>(`/youtube/search?q=${encodeURIComponent(query)}&limit=5`)
       setResults(data)
     } catch (e) {
-      setSearchErr(e instanceof Error ? e.message : 'Error en búsqueda')
+      setSearchErr(e instanceof Error ? e.message : t('msmFailed'))
     } finally {
       setSearching(false)
     }
@@ -49,32 +51,32 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
         className="manual-search-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Seleccionar fuente de YouTube"
+        aria-label={t('msmKicker')}
         onMouseDown={e => e.stopPropagation()}
       >
         <div className="msm-header">
           <div>
-            <div className="kicker">Seleccionar fuente de YouTube</div>
+            <div className="kicker">{t('msmKicker')}</div>
             <h2>{trackName}</h2>
             <p>{trackArtist}</p>
           </div>
-          <button className="msm-close" onClick={onClose} aria-label="Cerrar">✕</button>
+          <button className="msm-close" onClick={onClose} aria-label={t('msmClose')}>✕</button>
         </div>
 
         {/* Search bar */}
         <div className="msm-search-bar">
-          <label className="sr-only" htmlFor="youtube-search-query">Buscar en YouTube</label>
+          <label className="sr-only" htmlFor="youtube-search-query">{t('msmSearchYT')}</label>
           <input
             id="youtube-search-query"
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && search()}
-            placeholder="Buscar en YouTube…"
+            placeholder={t('msmSearchPlaceholder')}
             disabled={searching}
           />
           <button className="btn btn-accent sm" onClick={search} disabled={searching || !query.trim()}>
-            {searching ? <span className="spinner" /> : 'Buscar'}
+            {searching ? <span className="spinner" /> : t('msmSearch')}
           </button>
         </div>
 
@@ -83,7 +85,7 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
         {/* Results list */}
         <div className="msm-results">
           {results.length === 0 && !searching && (
-            <p className="msm-empty">Sin resultados. Intenta otra búsqueda.</p>
+            <p className="msm-empty">{t('msmEmpty')}</p>
           )}
           {results.map((r, i) => (
             <div key={r.url + i} className="msm-result-row">
@@ -106,7 +108,7 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
                 className="btn btn-accent sm"
                 onClick={() => onSelect(r.url)}
               >
-                Usar este
+                {t('msmUseThis')}
               </button>
             </div>
           ))}
@@ -114,9 +116,9 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
 
         {/* Paste URL */}
         <div className="msm-paste-section">
-          <div className="msm-paste-label">O pega una URL de YouTube directamente:</div>
+          <div className="msm-paste-label">{t('msmPasteLabel')}</div>
           <div className="msm-paste-row">
-            <label className="sr-only" htmlFor="youtube-url-override">URL de YouTube</label>
+            <label className="sr-only" htmlFor="youtube-url-override">{t('msmYoutubeUrl')}</label>
             <input
               id="youtube-url-override"
               value={pasteUrl}
@@ -128,7 +130,7 @@ export function ManualSearchModal({ trackName, trackArtist, candidates, onSelect
               disabled={!pasteValid}
               onClick={() => onSelect(pasteUrl.trim())}
             >
-              Confirmar
+              {t('msmConfirm')}
             </button>
           </div>
         </div>

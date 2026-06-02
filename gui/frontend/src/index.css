@@ -1,6 +1,8 @@
 :root {
   --bg:        #FBFBF8;
   --bg-2:      #F2F1EC;
+  --bg-3:      #E9E7DE;
+  --surface:   #FFFFFF;
   --ink:       #0F0F11;
   --ink-soft:  #5C5C62;
   --ink-faint: #9A9A9F;
@@ -146,7 +148,7 @@ input, select { font-family: inherit; }
 
 .input-wrap {
   position: relative;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: 14px;
   padding: 8px 8px 8px 20px;
@@ -155,6 +157,10 @@ input, select { font-family: inherit; }
   transition: border-color 200ms;
 }
 .input-wrap:focus-within { border-color: var(--accent); }
+.hero.is-dragging .input-wrap {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(29,185,84,0.14), var(--shadow);
+}
 .input-wrap .icon { color: var(--ink-faint); flex-shrink: 0; display: flex; }
 .input-wrap input {
   flex: 1; border: 0; outline: 0;
@@ -252,7 +258,7 @@ input, select { font-family: inherit; }
 }
 
 .pl-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: 18px;
   padding: 28px;
@@ -619,6 +625,18 @@ input, select { font-family: inherit; }
 }
 .track.queued { opacity: 0.78; }
 .track.queued .dl-btn { color: var(--ink-soft); cursor: default; }
+.hash-chip {
+  grid-column: 3 / -1;
+  justify-self: start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  background: var(--bg-2);
+  border: 1px solid var(--rule);
+  border-radius: 99px;
+  padding: 2px 8px;
+  margin-top: -6px;
+}
 
 .track-skeletons {
   position: absolute;
@@ -1137,13 +1155,37 @@ footer {
   color: var(--ink-soft);
   width: 100%;
 }
-footer .links { display: flex; gap: 20px; }
+footer .footer-info { display: flex; flex-direction: column; gap: 4px; }
+footer .footer-disclaimer { font-size: 12px; color: var(--ink-faint); }
+footer .links { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+footer .links a { color: var(--ink-soft); text-decoration: none; }
+footer .links a:hover { color: var(--ink); text-decoration: underline; }
+footer .footer-admin { color: var(--ink-faint); }
+
+.legal-wrap { max-width: 760px; margin: 56px auto 0; padding: 0 24px; width: 100%; color: var(--ink); }
+.legal-wrap h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 8px; }
+.legal-wrap h2 { font-size: 18px; font-weight: 600; margin: 32px 0 10px; }
+.legal-wrap p, .legal-wrap li { color: var(--ink-soft); font-size: 15px; line-height: 1.65; }
+.legal-wrap ul { padding-left: 22px; margin: 8px 0 14px; }
+.legal-wrap li { margin: 4px 0; }
+.legal-wrap .legal-meta { font-size: 13px; color: var(--ink-faint); margin: 0 0 24px; }
+.footer-lang { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+.footer-lang select {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 3px 6px;
+}
 
 /* ── Settings (kept light-themed for consistency) ────────────────────── */
 .settings-wrap { max-width: 960px; margin: 56px auto 0; padding: 0 24px; width: 100%; }
 .settings-wrap h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 24px; }
+.settings-title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.settings-title-row h1 { margin: 0; }
 .settings-card {
-  background: #fff; border: 1px solid var(--rule); border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 16px;
   padding: 28px; box-shadow: var(--shadow);
 }
 .settings-card .field { margin-bottom: 18px; }
@@ -1163,7 +1205,7 @@ footer .links { display: flex; gap: 20px; }
 
 .settings-help {
   margin-top: 18px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: 16px;
   padding: 24px;
@@ -1311,10 +1353,10 @@ summary:focus-visible {
     bottom: 12px;
     z-index: 8000;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
     gap: 4px;
     padding: 6px;
-    background: rgba(255,255,255,0.94);
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
     border: 1px solid var(--rule);
     border-radius: 14px;
     box-shadow: 0 10px 34px rgba(15,15,17,0.14);

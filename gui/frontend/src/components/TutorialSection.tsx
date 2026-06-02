@@ -1,84 +1,65 @@
-const features = [
-  {
-    title: 'Links de Spotify',
-    body: 'Acepta canciones, albumes y playlists completas desde open.spotify.com. La app identifica el tipo de enlace y carga los datos principales antes de descargar.',
-  },
-  {
-    title: 'Metadata completa',
-    body: 'Usa Spotify para nombre, artista, album, portada, duracion y orden de tracks. Esa informacion se embebe en el archivo cuando el formato lo permite.',
-  },
-  {
-    title: 'Formatos flexibles',
-    body: 'Puedes elegir MP3, M4A u OPUS y ajustar la calidad entre 128, 192 y 320 kbps segun compatibilidad, tamano o eficiencia.',
-  },
-  {
-    title: 'Playlists grandes',
-    body: 'Las listas se muestran en paginas de 50 canciones para que el navegador y el backend sigan respondiendo bien incluso con colecciones largas.',
-  },
-  {
-    title: 'Filtros utiles',
-    body: 'Incluye busqueda por texto y filtro por idioma para revisar mejor canciones en espanol, ingles, japones, coreano y otros grupos detectados.',
-  },
-  {
-    title: 'Descarga individual o lote',
-    body: 'Puedes descargar una cancion suelta, toda la pagina visible o generar un ZIP para manejar lotes sin perder los fallos individuales.',
-  },
-]
-
-const limits = [
-  'Spotify aporta la metadata; el audio no sale directamente de Spotify.',
-  'La disponibilidad depende de fuentes publicas encontradas en YouTube.',
-  'Algunas coincidencias pueden fallar por region, duracion distinta, remixes, covers o videos mal titulados.',
-  'Las playlists se revisan en bloques de 50 canciones por pagina para mantener estable la experiencia.',
-  'El servidor necesita credenciales gratuitas de Spotify API para resolver albumes, playlists y tracks.',
-  'La calidad final tambien depende de la fuente original, no solo del bitrate elegido.',
-]
-
-const sectionLinks = [
-  { href: '#que-es', label: 'Que es' },
-  { href: '#caracteristicas', label: 'Caracteristicas' },
-  { href: '#tutorial-uso', label: 'Tutorial' },
-  { href: '#limites', label: 'Limites' },
-  { href: '#faq', label: 'FAQ' },
-]
+import { usePreferences } from '../preferences'
 
 export function TutorialSection() {
+  const { t } = usePreferences()
+
+  const features = [
+    { title: t('featureSpotifyLinksTitle'), body: t('featureSpotifyLinksBody') },
+    { title: t('featureMetadataTitle'),     body: t('featureMetadataBody') },
+    { title: t('featureFormatsTitle'),      body: t('featureFormatsBody') },
+    { title: t('featureLargeTitle'),        body: t('featureLargeBody') },
+    { title: t('featureFiltersTitle'),      body: t('featureFiltersBody') },
+    { title: t('featureBatchTitle'),        body: t('featureBatchBody') },
+  ]
+
+  const limits = [t('limit1'), t('limit2'), t('limit3'), t('limit4'), t('limit5'), t('limit6')]
+
+  const sectionLinks = [
+    { href: '#what-is-it',  label: t('sectionWhatItIs') },
+    { href: '#features',    label: t('sectionFeatures') },
+    { href: '#usage-guide', label: t('sectionGuide') },
+    { href: '#limits',      label: t('sectionLimits') },
+    { href: '#faq',         label: t('sectionFaq') },
+  ]
+
+  const faqItems = [
+    { q: t('faqQ1'), a: t('faqA1'), open: true },
+    { q: t('faqQ2'), a: t('faqA2') },
+    { q: t('faqQ3'), a: t('faqA3') },
+    { q: t('faqQ4'), a: t('faqA4') },
+    { q: t('faqQ5'), a: t('faqA5') },
+    { q: t('faqQ6'), a: t('faqA6') },
+    { q: t('faqQ7'), a: t('faqA7') },
+  ]
+
   return (
     <section className="tutorial" id="tutorial">
       <div className="section-title">
-        <div className="kicker">Guia de uso</div>
-        <h2>Descargar musica de Spotify con mas contexto y control</h2>
+        <div className="kicker">{t('tutorialKicker')}</div>
+        <h2>{t('tutorialTitle')}</h2>
       </div>
 
-      <nav className="section-jump" aria-label="Secciones de la guia">
+      <nav className="section-jump" aria-label={t('guideSections')}>
         {sectionLinks.map((link) => (
           <a href={link.href} key={link.href}>{link.label}</a>
         ))}
       </nav>
 
-      <section className="info-block about-page" id="que-es" aria-labelledby="que-es-title">
+      <section className="info-block about-page" id="what-is-it" aria-labelledby="what-is-it-title">
         <div>
-          <div className="kicker">Que es esta pagina</div>
-          <h3 id="que-es-title">Una herramienta web para convertir links de Spotify en archivos de audio descargables</h3>
+          <div className="kicker">{t('whatIsItKicker')}</div>
+          <h3 id="what-is-it-title">{t('whatIsItTitle')}</h3>
         </div>
         <div className="info-copy">
-          <p>
-            Spotify Sing es una pagina auto-hospedable para pegar un enlace de Spotify, resolver sus canciones y descargar audio
-            en MP3, M4A u OPUS desde el navegador. Sirve para trabajar con tracks individuales, albumes y playlists sin instalar
-            una app de escritorio ni conectar un telefono por cable.
-          </p>
-          <p>
-            La pagina usa Spotify como fuente de informacion musical: titulo, artista, album, portada, duracion y orden de la
-            playlist. Despues busca una fuente de audio compatible, normalmente en YouTube, y prepara el archivo con metadata para
-            que sea facil de organizar en tu reproductor.
-          </p>
+          <p>{t('whatIsItP1')}</p>
+          <p>{t('whatIsItP2')}</p>
         </div>
       </section>
 
-      <section className="info-block" id="caracteristicas" aria-labelledby="features-title">
+      <section className="info-block" id="features" aria-labelledby="features-title">
         <div className="section-subtitle">
-          <div className="kicker">Caracteristicas</div>
-          <h3 id="features-title">Lo que puedes hacer aqui</h3>
+          <div className="kicker">{t('featuresKicker')}</div>
+          <h3 id="features-title">{t('featuresTitle')}</h3>
         </div>
 
         <div className="feature-grid">
@@ -91,38 +72,38 @@ export function TutorialSection() {
         </div>
       </section>
 
-      <section className="info-block" id="tutorial-uso" aria-labelledby="tutorial-title">
+      <section className="info-block" id="usage-guide" aria-labelledby="tutorial-title">
         <div className="section-subtitle">
-          <div className="kicker">Tutorial rapido</div>
-          <h3 id="tutorial-title">Como usar Spotify Sing</h3>
+          <div className="kicker">{t('quickGuideKicker')}</div>
+          <h3 id="tutorial-title">{t('quickGuideTitle')}</h3>
         </div>
 
         <div className="steps">
           <div className="step">
             <div className="num">1</div>
-            <h4>Copia un link de Spotify</h4>
-            <p>Abre Spotify web o la app, busca una cancion, album o playlist, y usa Compartir para copiar el enlace.</p>
+            <h4>{t('step1Title')}</h4>
+            <p>{t('step1Body')}</p>
             <div className="demo-line">https://<span className="hl">open.spotify.com/playlist/</span>37i9dQZF...</div>
           </div>
           <div className="step">
             <div className="num">2</div>
-            <h4>Pegalo en el buscador</h4>
-            <p>La pagina detecta el tipo de enlace, carga portada y tracks, y te deja filtrar por texto o idioma antes de descargar.</p>
-            <div className="demo-line">Track / Album / <span className="hl">Playlist OK</span></div>
+            <h4>{t('step2Title')}</h4>
+            <p>{t('step2Body')}</p>
+            <div className="demo-line">{t('step2Demo')}</div>
           </div>
           <div className="step">
             <div className="num">3</div>
-            <h4>Elige formato y descarga</h4>
-            <p>Selecciona MP3, M4A u OPUS, define la calidad y descarga una cancion, la pagina visible o un ZIP del lote.</p>
-            <div className="demo-line"><span className="hl">Download</span> mp3 / 320 kbps / metadata incluida</div>
+            <h4>{t('step3Title')}</h4>
+            <p>{t('step3Body')}</p>
+            <div className="demo-line">{t('step3Demo')}</div>
           </div>
         </div>
       </section>
 
-      <section className="info-block limits-block" id="limites" aria-labelledby="limits-title">
+      <section className="info-block limits-block" id="limits" aria-labelledby="limits-title">
         <div className="section-subtitle">
-          <div className="kicker">Consciencia de limites</div>
-          <h3 id="limits-title">Lo que conviene saber antes de descargar</h3>
+          <div className="kicker">{t('limitsKicker')}</div>
+          <h3 id="limits-title">{t('limitsTitle')}</h3>
         </div>
 
         <ul className="limit-list">
@@ -133,42 +114,13 @@ export function TutorialSection() {
       </section>
 
       <div className="faq" id="faq">
-        <h3>Preguntas frecuentes</h3>
-
-        <details open>
-          <summary>Necesito una cuenta de Spotify?</summary>
-          <p>No necesitas iniciar sesion como usuario para pegar links. El servidor si necesita credenciales gratuitas de Spotify API configuradas por quien hospeda la pagina.</p>
-        </details>
-
-        <details>
-          <summary>De donde sale el audio?</summary>
-          <p>Spotify se usa para metadata y estructura. El audio se resuelve desde fuentes publicas, normalmente YouTube, usando busquedas y validaciones de artista, titulo y duracion.</p>
-        </details>
-
-        <details>
-          <summary>Por que una cancion puede salir con otro audio?</summary>
-          <p>Puede pasar si YouTube devuelve un cover, remix, video en vivo o resultado mal titulado. Para esos casos existe revision manual y reintento con otra fuente.</p>
-        </details>
-
-        <details>
-          <summary>Como funcionan las playlists grandes?</summary>
-          <p>La pagina carga 50 canciones por pagina. Puedes saltar a una pagina concreta, filtrar lo visible y descargar por partes para evitar saturar el navegador o el servidor.</p>
-        </details>
-
-        <details>
-          <summary>Que significa la categoria Otros en idioma?</summary>
-          <p>Otros agrupa canciones con texto muy corto, idioma mixto, instrumental, nombres propios o senales insuficientes para clasificar con confianza.</p>
-        </details>
-
-        <details>
-          <summary>Que formato y calidad debo elegir?</summary>
-          <p>MP3 a 320 kbps es lo mas compatible. M4A suele equilibrar calidad y tamano. OPUS es eficiente, pero funciona mejor en reproductores modernos.</p>
-        </details>
-
-        <details>
-          <summary>Puedo usarla desde el celular?</summary>
-          <p>Si. Abre la pagina en el navegador movil, comparte o pega el link de Spotify y descarga el archivo directo al dispositivo.</p>
-        </details>
+        <h3>{t('faqTitle')}</h3>
+        {faqItems.map((item, i) => (
+          <details key={i} open={item.open}>
+            <summary>{item.q}</summary>
+            <p>{item.a}</p>
+          </details>
+        ))}
       </div>
     </section>
   )

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { API_BASE, api } from '../api/client'
+import useSWR from 'swr'
+import { API_BASE, api, fetcher } from '../api/client'
 import type { ResolvedPayload } from '../api/types'
 import { triggerBrowserDownload } from '../api/download'
 import { normalizeLang } from '../api/langLabel'
 import { TrackRow } from './TrackRow'
 import { TrackPaginator } from './TrackPaginator'
 import { useToast } from './toast-context'
+import { usePreferences } from '../preferences'
 
 interface Props {
   payload: ResolvedPayload
@@ -13,16 +15,19 @@ interface Props {
 }
 
 const MAX_TRACKS_PER_REQUEST = 50
-const BATCH_CONCURRENCY = 4
 const MAX_RETRIES = 2
 const SPOTIFY_RE = /open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist)\/([A-Za-z0-9]+)/
 
-function totalDuration(payload: ResolvedPayload): string {
+function totalDuration(
+  payload: ResolvedPayload,
+  mins: (m: number) => string,
+  hmins: (h: number, m: number) => string,
+): string {
   const total = payload.tracks.reduce((acc, t) => acc + (t.duration_ms || 0), 0)
   const min = Math.round(total / 60000)
-  if (min < 60) return `${min} min`
+  if (min < 60) return mins(min)
   const h = Math.floor(min / 60)
-  return `${h} h ${min % 60} min`
+  return hmins(h, min % 60)
 }
 
 function parseSpotifyId(url: string): string | null {
@@ -67,6 +72,8 @@ type ZipState = 'idle' | 'working' | 'done' | 'error'
 
 export function PlaylistCard({ payload, sourceUrl }: Props) {
   const { toast } = useToast()
+  const { t } = usePreferences()
+  const { data: publicConfig } = useSWR<Record<string, unknown>>('/config/public', fetcher)
   const [activePayload, setActivePayload] = useState(payload)
   const [fmt, setFmt] = useState('mp3')
   const [quality, setQuality] = useState(320)
@@ -84,6 +91,7 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
   const [pageLoading, setPageLoading] = useState(false)
   const [pageError, setPageError] = useState<string | null>(null)
   const requestSeq = useRef(0)
+  const batchConcurrency = Math.max(1, Math.min(5, Number(publicConfig?.max_concurrent_downloads ?? 3)))
 
   // Batch pool bookkeeping — refs to avoid stale closures across async callbacks.
   const pendingRef = useRef<string[]>([])
@@ -157,7 +165,7 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
         setErrorIds(new Set())
       } catch (err) {
         if (seq !== requestSeq.current) return
-        setPageError(err instanceof Error ? err.message : 'No se pudo cargar la página')
+        setPageError(err instanceof Error ? err.message : t('plPageError'))
       } finally {
         if (seq === requestSeq.current) setPageLoading(false)
       }
@@ -193,16 +201,16 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
   const trackKey = (track: { spotify_id?: string; name: string }, absIndex: number): string =>
     track.spotify_id || `${absIndex}-${track.name}`
 
-  const kindLabel = activePayload.kind === 'playlist' ? 'Spotify · Playlist'
-                  : activePayload.kind === 'album'    ? 'Spotify · Álbum'
-                  : 'Spotify · Track'
+  const kindLabel = activePayload.kind === 'playlist' ? t('plKindPlaylist')
+                  : activePayload.kind === 'album'    ? t('plKindAlbum')
+                  : t('plKindTrack')
 
   const coverUrl = activePayload.info.image_url || activePayload.tracks[0]?.album_art_url
 
   // ─── batch pool ────────────────────────────────────────────────────────────
 
   const dispatchNext = () => {
-    while (inFlightRef.current < BATCH_CONCURRENCY && pendingRef.current.length > 0) {
+    while (inFlightRef.current < batchConcurrency && pendingRef.current.length > 0) {
       const key = pendingRef.current.shift()!
       inFlightRef.current++
       const value = ++seqRef.current
@@ -215,7 +223,7 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
       setBatchRunning(false)
       batchKeysRef.current = new Set()
       toast(
-        errs > 0 ? `${done} descargadas · ${errs} con error` : `${done} descargadas`,
+        errs > 0 ? t('plToastDownloadedWithErrors')(done, errs) : t('plToastDownloaded')(done),
         errs > 0 ? 'info' : 'success',
       )
     }
@@ -239,6 +247,16 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
     const keys = tracks.map((t, i) => trackKey(t, activePayload.offset + i))
     startKeys(keys)
   }
+
+  useEffect(() => {
+    const onDownloadAll = () => {
+      if (!batchRunning && tracks.length) downloadAll()
+    }
+    window.addEventListener('mp3vine-download-all', onDownloadAll)
+    return () => window.removeEventListener('mp3vine-download-all', onDownloadAll)
+    // downloadAll intentionally reads current visible tracks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchRunning, tracks])
 
   const retryFailed = () => {
     const keys = [...errorIds]
@@ -290,7 +308,7 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
     if (zipState === 'working') return
     const ids = tracks.map(t => t.spotify_id).filter(Boolean) as string[]
     if (!ids.length) {
-      toast('No hay tracks con ID de Spotify para el ZIP', 'error')
+      toast(t('plToastZipNoIds'), 'error')
       return
     }
     setZipState('working')
@@ -309,33 +327,33 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
           if (d.state === 'done') {
             es.close()
             setZipState('done')
-            toast('ZIP listo', 'success')
+            toast(t('plToastZipReady'), 'success')
             triggerBrowserDownload(`${API_BASE}/download/batch/${job_id}/zip`)
             setTimeout(() => setZipState('idle'), 1500)
           } else if (d.state === 'error') {
             es.close()
             setZipState('error')
-            toast(d.error || 'Error generando ZIP', 'error')
+            toast(d.error || t('plToastZipFailed'), 'error')
           }
         } catch { /* ignore parse errors */ }
       }
       es.onerror = () => {
         es.close()
         setZipState('error')
-        toast('Conexión perdida (ZIP)', 'error')
+        toast(t('plToastZipConnLost'), 'error')
       }
     } catch (err) {
       setZipState('error')
-      toast(err instanceof Error ? err.message : 'Error generando ZIP', 'error')
+      toast(err instanceof Error ? err.message : t('plToastZipFailed'), 'error')
     }
   }
 
   const doneCount = doneIds.size
   const errorCount = errorIds.size
   const zipLabel = zipState === 'working'
-    ? `Generando ZIP… ${zipProgress.done}/${zipProgress.total}`
-    : zipState === 'done' ? '✓ ZIP listo'
-    : '⬇ Descargar ZIP'
+    ? t('plZipGenerating')(zipProgress.done, zipProgress.total)
+    : zipState === 'done' ? t('plZipReady')
+    : t('plZipDownload')
 
   return (
     <section className="results" id="results">
@@ -353,29 +371,29 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
           </div>
           <div className="pl-info">
             <div className="kicker">{kindLabel}{activePayload.info.owner ? ` · ${activePayload.info.owner}` : ''}</div>
-            <h2>{activePayload.info.name || 'Sin nombre'}</h2>
+            <h2>{activePayload.info.name || t('plUntitled')}</h2>
             <div className="stats">
-              <strong>{activePayload.total} tracks</strong> · <strong>{totalDuration(activePayload)}</strong>
+              <strong>{t('plTracksCount')(activePayload.total)}</strong> · <strong>{totalDuration(activePayload, t('plMinutes'), t('plHourMinutes'))}</strong>
               {activePayload.returned < activePayload.total && (
-                <> · mostrando {activePayload.offset + 1}-{activePayload.offset + activePayload.returned}</>
+                <> · {t('plShowing')(activePayload.offset + 1, activePayload.offset + activePayload.returned)}</>
               )}
             </div>
           </div>
           <div className="pl-actions">
             <div className="options">
-              <select value={fmt} onChange={e => setFmt(e.target.value)} aria-label="Formato">
+              <select value={fmt} onChange={e => setFmt(e.target.value)} aria-label={t('plFormat')}>
                 <option value="mp3">mp3</option>
                 <option value="m4a">m4a</option>
                 <option value="opus">opus</option>
               </select>
-              <select value={quality} onChange={e => setQuality(Number(e.target.value))} aria-label="Calidad">
+              <select value={quality} onChange={e => setQuality(Number(e.target.value))} aria-label={t('plQuality')}>
                 <option value={320}>320 kbps</option>
                 <option value={192}>192 kbps</option>
                 <option value={128}>128 kbps</option>
               </select>
             </div>
             <button className="btn btn-accent" onClick={downloadAll} disabled={pageLoading || batchRunning}>
-              {batchRunning ? `⏳ Descargando… ${doneCount}/${tracks.length}` : `⬇ Descargar todo (${tracks.length})`}
+              {batchRunning ? t('plDownloading')(doneCount, tracks.length) : t('plDownloadAll')(tracks.length)}
             </button>
             <button
               className="btn btn-ghost"
@@ -406,18 +424,18 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
               <path d="m20 20-3-3" />
             </svg>
             <input
-              placeholder="Filtrar título o artista"
+              placeholder={t('plFilterInput')}
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />
           </div>
-          <div className="lang-filter" aria-label="Filtrar por idioma">
+          <div className="lang-filter" aria-label={t('plLangFilter')}>
             <button
               className={langFilter === 'ALL' ? 'active' : ''}
               onClick={() => setLangFilter('ALL')}
               type="button"
             >
-              Todos
+              {t('plLangAll')}
             </button>
             {langOptions.map(({ lang, count }) => (
               <button
@@ -430,7 +448,7 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
               </button>
             ))}
           </div>
-          <div className="count">{tracks.length} canciones</div>
+          <div className="count">{t('plTracksShort')(tracks.length)}</div>
         </div>
 
         <div className="tracks">
@@ -469,12 +487,12 @@ export function PlaylistCard({ payload, sourceUrl }: Props) {
 
         <div className="pl-foot">
           <div className="msg">
-            <strong>{doneCount}</strong> de {tracks.length} descargados
-            {errorCount > 0 && <> · <strong className="foot-err">{errorCount} con error</strong></>}
-            {' '}· Las descargas se procesan en paralelo.
+            <strong>{doneCount}</strong> {t('plOfDownloaded')(doneCount, tracks.length)}
+            {errorCount > 0 && <> · <strong className="foot-err">{t('plFailed')(errorCount)}</strong></>}
+            {' '}· {t('plParallel')}
           </div>
           {errorCount > 0 && !batchRunning && (
-            <button className="btn btn-ghost sm" onClick={retryFailed}>↻ Reintentar fallidas ({errorCount})</button>
+            <button className="btn btn-ghost sm" onClick={retryFailed}>{t('plRetryFailed')(errorCount)}</button>
           )}
         </div>
       </div>

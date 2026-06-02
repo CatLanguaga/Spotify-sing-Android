@@ -9,3 +9,4 @@ Pillow>=10.0.0
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 langdetect>=1.0.9
+librosa>=0.10.0

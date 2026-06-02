@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 MAX_TRACKS_PER_REQUEST = int(os.environ.get('MAX_TRACKS_PER_REQUEST', '50'))
+MAX_CONCURRENT_DOWNLOADS_DEFAULT = int(os.environ.get('SPOTIFY_MAX_CONCURRENT_DOWNLOADS', '3'))
 
 
 class ConfigManager:
@@ -22,7 +23,7 @@ class ConfigManager:
     def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None,
                     playlist_id=None, default_fmt=None, default_quality=None,
                     default_range_from=None, default_range_to=None,
-                    manual_review_enabled=None):
+                    manual_review_enabled=None, max_concurrent_downloads=None):
         """Save API credentials and settings - YouTube API no longer needed"""
         existing = self.load_config() or {}
 
@@ -36,6 +37,10 @@ class ConfigManager:
             'default_range_from': default_range_from if default_range_from is not None else existing.get('default_range_from', 1),
             'default_range_to': default_range_to if default_range_to is not None else existing.get('default_range_to', None),
             'manual_review_enabled': manual_review_enabled if manual_review_enabled is not None else existing.get('manual_review_enabled', False),
+            'max_concurrent_downloads': max(1, min(5, int(
+                max_concurrent_downloads if max_concurrent_downloads is not None
+                else existing.get('max_concurrent_downloads', MAX_CONCURRENT_DOWNLOADS_DEFAULT)
+            ))),
         }
 
         with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -76,6 +81,7 @@ class ConfigManager:
         env_id = os.environ.get('SPOTIFY_CLIENT_ID')
         env_secret = os.environ.get('SPOTIFY_CLIENT_SECRET')
         env_download = os.environ.get('DOWNLOAD_DIR')
+        env_concurrency = os.environ.get('SPOTIFY_MAX_CONCURRENT_DOWNLOADS')
 
         if env_id:
             file_config['spotify_client_id'] = env_id
@@ -83,6 +89,11 @@ class ConfigManager:
             file_config['spotify_client_secret'] = env_secret
         if env_download:
             file_config['download_folder'] = env_download
+        if env_concurrency and 'max_concurrent_downloads' not in file_config:
+            try:
+                file_config['max_concurrent_downloads'] = max(1, min(5, int(env_concurrency)))
+            except ValueError:
+                pass
 
         return file_config or None
 

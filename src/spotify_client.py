@@ -218,6 +218,7 @@ class SpotifyClient:
                         'album_art_url': album_art_url,
                         'track_number': track.get('track_number', 1),
                         'year': album.get('release_date', '')[:4] if album.get('release_date') else '',
+                        'lyrics': track.get('lyrics') or track.get('lyrics_text') or '',
                         'language': language,
                         'spotify_id': track.get('id', '')
                     })

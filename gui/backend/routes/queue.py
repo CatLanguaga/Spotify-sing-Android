@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import shutil
@@ -38,9 +39,29 @@ _DL_STATE_LOCK = threading.Lock()
 _QUEUE_LOCK = threading.Lock()
 
 
-def _set_progress(item_id: str, percent: int, state: str = "downloading", error: str = None) -> None:
+def _set_progress(
+    item_id: str,
+    percent: int,
+    state: str = "downloading",
+    error: str = None,
+    sha256: str = None,
+) -> None:
     with _DL_STATE_LOCK:
-        _DL_STATE[item_id] = {"percent": percent, "state": state, "error": error, "ts": time.time()}
+        _DL_STATE[item_id] = {
+            "percent": percent,
+            "state": state,
+            "error": error,
+            "sha256": sha256,
+            "ts": time.time(),
+        }
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 # ─── persistence ───────────────────────────────────────────────────────────────
@@ -151,6 +172,7 @@ def download_queue_item(item_id: str):
         raise HTTPException(500, f"Download failed: {msg}")
 
     item["local_path"] = local_path
+    item["audio_sha256"] = _sha256_file(local_path)
     item["status"] = QueueStatus.done
     _update_item(items, item)
     return item

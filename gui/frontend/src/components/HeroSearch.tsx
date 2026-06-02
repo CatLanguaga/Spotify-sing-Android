@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import type { ResolvedPayload } from '../api/types'
+import { usePreferences } from '../preferences'
 
 const SPOTIFY_RE = /open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist)\/([A-Za-z0-9]+)/
+const SPOTIFY_SHORTLINK_RE = /spotify\.(?:link|app\.link)\/[A-Za-z0-9]+/
 
 interface Props {
   onResolved: (payload: ResolvedPayload, url: string) => void
@@ -12,23 +14,26 @@ interface Props {
 
 const EXAMPLES: Array<{ label: string; url: string }> = [
   { label: 'track',    url: 'https://open.spotify.com/track/4PTG3Z6ehGkBFwjybzWkR8' },
-  { label: 'álbum',    url: 'https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy' },
+  { label: 'album',    url: 'https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy' },
   { label: 'playlist', url: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M' },
 ]
 
 function extractSpotifyUrl(raw: string): string {
   const trimmed = raw.trim()
-  const match = trimmed.match(/https?:\/\/open\.spotify\.com\/(?:intl-[a-z]+\/)?(?:track|album|playlist)\/[A-Za-z0-9][^\s]*/)
+  const match = trimmed.match(/https?:\/\/(?:open\.spotify\.com\/(?:intl-[a-z]+\/)?(?:track|album|playlist)\/[A-Za-z0-9][^\s]*|spotify\.(?:link|app\.link)\/[A-Za-z0-9][^\s]*)/)
   return (match?.[0] ?? trimmed).replace(/[),.;]+$/, '')
 }
 
 export function HeroSearch({ onResolved, onError, onLoadingChange }: Props) {
+  const { t } = usePreferences()
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const lastSubmittedRef = useRef('')
 
   const parsed = useMemo(() => {
     const m = extractSpotifyUrl(url).match(SPOTIFY_RE)
+    if (!m && SPOTIFY_SHORTLINK_RE.test(extractSpotifyUrl(url))) return { kind: 'link' as const }
     if (!m) return null
     return { kind: m[1] as 'track' | 'album' | 'playlist' }
   }, [url])
@@ -51,7 +56,7 @@ export function HeroSearch({ onResolved, onError, onLoadingChange }: Props) {
       }, 50)
     } catch (err) {
       lastSubmittedRef.current = ''
-      onError(err instanceof Error ? err.message : 'Error al resolver URL')
+      onError(err instanceof Error ? err.message : t('resolveError'))
     } finally {
       setLoading(false)
     }
@@ -72,20 +77,36 @@ export function HeroSearch({ onResolved, onError, onLoadingChange }: Props) {
     void submit('manual')
   }
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    const dropped =
+      e.dataTransfer.getData('text/uri-list') ||
+      e.dataTransfer.getData('text/plain')
+    if (dropped) setUrl(extractSpotifyUrl(dropped))
+  }
+
   const kindLabel = parsed
-    ? parsed.kind === 'playlist' ? 'Playlist detectada'
-    : parsed.kind === 'album'    ? 'Álbum detectado'
-    : 'Track detectado'
+    ? parsed.kind === 'playlist' ? t('detectedPlaylist')
+    : parsed.kind === 'album'    ? t('detectedAlbum')
+    : parsed.kind === 'track'    ? t('detectedTrack')
+    : t('detectedShortlink')
     : null
 
   return (
-    <section className="hero">
-      <div className="kicker">Descarga directa · sin cuenta · sin cola</div>
-      <h1>Pega el link.<br /><span className="em">Descarga la música.</span></h1>
-      <p className="sub">Pasa una URL de Spotify y guarda los archivos en tu dispositivo. Track, álbum o playlist completa — sin esperar, sin teléfono, sin instalar nada.</p>
+    <section
+      className={`hero ${dragging ? 'is-dragging' : ''}`}
+      onDragEnter={(e) => { e.preventDefault(); setDragging(true) }}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+    >
+      <div className="kicker">{t('heroKicker')}</div>
+      <h1>{t('heroTitleA')}<br /><span className="em">{t('heroTitleB')}</span></h1>
+      <p className="sub">{t('heroSub')}</p>
 
       <form className="input-wrap" onSubmit={handleSubmit}>
-        <label className="sr-only" htmlFor="spotify-url">URL de Spotify</label>
+        <label className="sr-only" htmlFor="spotify-url">{t('spotifyUrl')}</label>
         <span className="icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-1 1" />
@@ -96,24 +117,24 @@ export function HeroSearch({ onResolved, onError, onLoadingChange }: Props) {
           id="spotify-url"
           value={url}
           onChange={e => setUrl(e.target.value)}
-          placeholder="https://open.spotify.com/playlist/..."
-          aria-label="URL de Spotify"
+          placeholder={t('inputPlaceholder')}
+          aria-label={t('spotifyUrl')}
           inputMode="url"
           autoCapitalize="none"
           autoCorrect="off"
         />
         {url && (
-          <button type="button" className="clear" onClick={() => setUrl('')} aria-label="Limpiar">×</button>
+          <button type="button" className="clear" onClick={() => setUrl('')} aria-label={t('clearInput')}>×</button>
         )}
         <button type="submit" className="btn btn-accent" disabled={!parsed || loading}>
-          {loading ? <><span className="spinner" /> Buscando…</> : 'Buscar →'}
+          {loading ? <><span className="spinner" /> {t('searching')}</> : t('search')}
         </button>
       </form>
 
       {kindLabel && <div className="detected">{kindLabel}</div>}
 
       <div className="examples">
-        <span>Pruébalo:</span>
+        <span>{t('tryIt')}</span>
         {EXAMPLES.map(ex => (
           <button key={ex.label} onClick={() => setUrl(ex.url)}>{ex.label}</button>
         ))}

@@ -1,40 +1,40 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Pagina web para descargar musica de Spotify desde links de tracks, albumes y playlists como MP3, M4A u OPUS con metadata, filtros y descarga por lote." />
+    <meta name="description" content="A self-hosted web page for downloading music from Spotify track, album, playlist, and short links as MP3, M4A, or OPUS with metadata, filters, and batch downloads." />
     <meta name="robots" content="index,follow" />
-    <meta property="og:title" content="Spotify Sing - descarga musica desde links de Spotify" />
-    <meta property="og:description" content="Pagina web para descargar musica de Spotify desde links de tracks, albumes y playlists como MP3, M4A u OPUS con metadata, filtros y descarga por lote." />
+    <meta property="og:title" content="Mp3vine - Spotify to MP3 downloader" />
+    <meta property="og:description" content="A self-hosted web page for downloading music from Spotify track, album, playlist, and short links as MP3, M4A, or OPUS with metadata, filters, and batch downloads." />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Spotify Sing" />
+    <meta property="og:site_name" content="Mp3vine" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Spotify Sing - descarga musica desde links de Spotify" />
-    <meta name="twitter:description" content="Pagina web para descargar musica de Spotify desde links de tracks, albumes y playlists como MP3, M4A u OPUS con metadata, filtros y descarga por lote." />
+    <meta name="twitter:title" content="Mp3vine - Spotify to MP3 downloader" />
+    <meta name="twitter:description" content="A self-hosted web page for downloading music from Spotify track, album, playlist, and short links as MP3, M4A, or OPUS with metadata, filters, and batch downloads." />
     <link rel="canonical" href="http://localhost:8000/" />
     <link rel="preconnect" href="https://i.scdn.co" />
     <script id="schema-webapp" type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebApplication",
-        "name": "Spotify Sing",
+        "name": "Mp3vine",
         "url": "http://localhost:8000/",
         "applicationCategory": "MultimediaApplication",
         "operatingSystem": "Web",
-        "description": "Pagina web para descargar musica de Spotify desde links de tracks, albumes y playlists como MP3, M4A u OPUS con metadata, filtros y descarga por lote.",
+        "description": "A self-hosted web page for downloading music from Spotify track, album, playlist, and short links as MP3, M4A, or OPUS with metadata, filters, and batch downloads.",
         "offers": {
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
         },
         "featureList": [
-          "Resolver tracks, albumes y playlists de Spotify",
-          "Descargar audio en MP3, M4A u OPUS",
-          "Embeder metadata y portada de Spotify en los archivos",
-          "Filtrar playlists por idioma",
-          "Descarga por lotes y ZIP"
+          "Resolve Spotify tracks, albums, playlists, and shortlinks",
+          "Download audio as MP3, M4A, or OPUS",
+          "Embed Spotify metadata and cover art in files",
+          "Filter playlists by detected language",
+          "Batch downloads and ZIP export"
         ]
       }
     </script>
@@ -42,55 +42,55 @@
       {
         "@context": "https://schema.org",
         "@type": "WebPage",
-        "name": "Spotify Sing - descarga musica desde links de Spotify",
+        "name": "Mp3vine - Spotify to MP3 downloader",
         "url": "http://localhost:8000/",
-        "description": "Pagina web para descargar musica de Spotify desde links de tracks, albumes y playlists como MP3, M4A u OPUS con metadata, filtros y descarga por lote.",
+        "description": "A self-hosted web page for downloading music from Spotify track, album, playlist, and short links as MP3, M4A, or OPUS with metadata, filters, and batch downloads.",
         "isPartOf": {
           "@type": "WebSite",
-          "name": "Spotify Sing",
+          "name": "Mp3vine",
           "url": "http://localhost:8000/"
         },
         "about": {
           "@type": "SoftwareApplication",
-          "name": "Spotify Sing",
+          "name": "Mp3vine",
           "applicationCategory": "MultimediaApplication",
           "operatingSystem": "Web"
         },
         "hasPart": [
           {
             "@type": "WebPageElement",
-            "name": "Que es esta pagina",
-            "url": "http://localhost:8000/#que-es",
-            "description": "Definicion de Spotify Sing como pagina auto-hospedable para convertir links de Spotify en archivos de audio descargables."
+            "name": "What this page is",
+            "url": "http://localhost:8000/#what-is-it",
+            "description": "Definition of Mp3vine as a self-hosted page for turning Spotify links into downloadable audio files."
           },
           {
             "@type": "WebPageElement",
-            "name": "Caracteristicas",
-            "url": "http://localhost:8000/#caracteristicas",
-            "description": "Resumen de links soportados, metadata, formatos, filtros, playlists grandes y descarga por lote."
+            "name": "Features",
+            "url": "http://localhost:8000/#features",
+            "description": "Summary of supported links, metadata, formats, filters, large playlists, and batch downloads."
           },
           {
             "@type": "WebPageElement",
-            "name": "Tutorial",
-            "url": "http://localhost:8000/#tutorial-uso",
-            "description": "Pasos para copiar un enlace de Spotify, pegarlo en el buscador, elegir formato y descargar."
+            "name": "Usage guide",
+            "url": "http://localhost:8000/#usage-guide",
+            "description": "Steps to copy a Spotify link, paste it into search, choose a format, and download."
           },
           {
             "@type": "WebPageElement",
-            "name": "Limites",
-            "url": "http://localhost:8000/#limites",
-            "description": "Notas sobre metadata de Spotify, fuentes publicas de audio, paginacion, credenciales y calidad final."
+            "name": "Limits",
+            "url": "http://localhost:8000/#limits",
+            "description": "Notes about Spotify metadata, public audio sources, pagination, credentials, and final quality."
           },
           {
             "@type": "WebPageElement",
-            "name": "Preguntas frecuentes",
+            "name": "Frequently asked questions",
             "url": "http://localhost:8000/#faq",
-            "description": "Respuestas sobre cuenta de Spotify, fuente de audio, fallos de match, playlists grandes, idioma, formato y uso movil."
+            "description": "Answers about Spotify accounts, audio sources, match failures, large playlists, language, format, and mobile use."
           }
         ]
       }
     </script>
-    <title>Spotify Sing - descarga musica desde links de Spotify</title>
+    <title>Mp3vine - Spotify to MP3 downloader</title>
   </head>
   <body>
     <div id="root"></div>

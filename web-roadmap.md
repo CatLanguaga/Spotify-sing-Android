@@ -331,7 +331,7 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ### Contenido principal
 
-- [x] Sección "Qué es esta página" con definición clara de Spotify Sing y su flujo real.
+- [x] Sección "Qué es esta página" con definición clara de Mp3vine y su flujo real.
 - [x] Características principales: links de Spotify, metadata, formatos, playlists grandes, filtros y descarga por lote/ZIP.
 - [x] Tutorial de uso expandido con pasos accionables.
 - [x] Consciencia de límites: Spotify como metadata, audio desde fuentes públicas, paginación 50, credenciales y calidad dependiente del origen.
@@ -351,32 +351,46 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ### 🔥 Alto impacto
 
-- [ ] **Persistencia de credenciales Spotify por sesión** (cookie/localStorage encriptado) — no pedir al usuario repegar Client ID cada visita
-- [ ] **Soporte para Spotify shortlinks** `spotify.link/xyz` (302 redirect a URL real) — los usuarios mobile comparten estos
-- [ ] **Sanitización de filenames** para CJK / árabe / emojis (algunos sistemas de archivos rompen)
+- [x] **Idioma principal de la página en inglés** — landing, navegación, CTA, estados, FAQ, SEO meta y `<html lang="en">`
+- [x] **Autenticación admin mínima** — sesión cookie HTTP-only firmada para identificar administradores antes de mostrar vistas sensibles
+- [x] **Configuración solo para administradores** — link oculto a usuarios no-admin y rutas/API de config protegidas en backend
+- [x] **Persistencia de credenciales Spotify** — credenciales guardadas server-side en config/env y editables solo con sesión admin; no se exponen a usuarios públicos
+- [x] **Soporte para Spotify shortlinks** `spotify.link/xyz` / `spotify.app.link/xyz` — resuelve redirect a URL real y valida destino Spotify
+- [x] **Sanitización de filenames** para CJK / árabe / emojis (algunos sistemas de archivos rompen)
 
 ### ⚡ Medio impacto
 
-- [ ] **Concurrencia configurable** — descargas paralelas (default 3, max 5) ajustable por user
-- [ ] **Resume de descargas**: si yt-dlp/pytubefix falla a mitad, reanudar desde byte X (cuando el source lo permite)
-- [ ] **Hash check del audio**: SHA256 del archivo descargado mostrado, para verificar integridad
+- [x] **Concurrencia configurable** — descargas paralelas (default 3, max 5) ajustable por admin; backend usa gate dinámico y frontend usa `/config/public`
+- [~] **Resume de descargas**: `pytubefix` no expone byte-offset explícito; se activó `skip_existing=true` + `max_retries=2` como recuperación best-effort cuando el source/librería lo permite
+- [x] **Hash check del audio**: SHA256 calculado al terminar descarga y mostrado en cada track descargado
 - [x] **ZIP download** del lote completo (mencionado en demo, falta implementar): zip server-side + stream al browser
-- [ ] **Drag & drop URL** sobre el input grande del hero
+- [x] **Drag & drop URL** sobre el input grande del hero
 - [x] **Detección automática de paste**: cubierto/priorizado en Fase 5 como auto-búsqueda al ingresar URL válida
-- [ ] **Keyboard shortcuts**: `Cmd/Ctrl+V` desde cualquier parte, `Enter` para buscar, `D` para descargar todo
-- [ ] **Dark mode toggle** con `prefers-color-scheme` por defecto
-- [ ] **i18n ES/EN** mínimo — JSON de strings, switch en footer
+- [x] **Keyboard shortcuts**: `Cmd/Ctrl+V` desde cualquier parte enfoca input, `Enter` busca, `D` descarga todo visible
+- [x] **Dark mode toggle** con `prefers-color-scheme` por defecto
+- [x] **i18n ES/EN opcional** — provider de strings + switch en footer; navegación/hero/footer conectados
 
 ### 🌱 Bajo impacto / nice-to-have
 
 - [ ] **PWA**: manifest + service worker para instalar en mobile
-- [ ] **Tema "stealth"**: dark mode + sin animaciones, para escritorios corporativos
-- [ ] **Embed metadata extra**: BPM, key (extraíble vía librería como `librosa`) — útil para DJs; complementa los metadatos core de Spotify.
-- [ ] **Lyrics embed**: si Spotify devuelve lyrics, embeber como tag USLT en el mp3
+- [x] **Tema "stealth"**: dark mode + sin animaciones, para escritorios corporativos
+- [x] **Embed metadata extra**: BPM, key (extraíble vía librería como `librosa`) — útil para DJs; complementa los metadatos core de Spotify.
+- [x] **Lyrics embed**: si Spotify devuelve lyrics, embeber como tag USLT en el mp3; M4A/OPUS también reciben tag de lyrics equivalente
 - [ ] **Soporte para Spotify podcasts** (si la API lo permite) — los episodios suelen tener audio source más limpio
 - [ ] **CLI companion**: un `pip install spotify-sing` que use el mismo backend, para integrar en scripts
 - [ ] **Webhook on-complete**: para auto-hosted, callback POST cuando un job termina
 - [ ] **Telemetría opcional self-hosted** (Plausible/Umami) — sin trackers third-party
+
+### 🧭 Pendientes detectados tras QA
+
+- [ ] **Detección automática de idioma del usuario** — usar navegador/locale/IP opcional para escoger idioma inicial; respetar override manual en `localStorage`
+- [x] **Cambio de idioma completo y correcto** — `preferences.tsx` ahora expone diccionario EN/ES completo; topbar, hero, tutorial, FAQ, PlaylistCard, TrackRow, TrackPaginator, QuickTrackModal, ManualSearchModal, SettingsView, footer, SEO meta (`seo.ts` con title/description bilingüe) y toasts usan `t()`
+- [ ] **Automatizar temas** — permitir modo automático por `prefers-color-scheme`, mantener override manual y documentar ciclo Light/Dark/Stealth
+- [ ] **Corregir layout del tutorial** — actualmente queda con zonas en blanco y se descuadra; rehacer espaciado, grid, anchos y responsive
+- [ ] **Reducir exceso de iconos** — simplificar UI, usar iconos solo donde aporten claridad y mantener botones legibles
+- [x] **Acceso sencillo a credenciales/admin** — link "Admin" visible en footer apunta a `/settings`, que ya renderiza form de login si no hay sesión; descubrimiento sin exponer secretos
+- [x] **Páginas legales** — `/terms` y `/privacy` con contenido bilingüe (EN/ES) modelado tras spotisaver: scope, no afiliación, responsabilidad del usuario, garantías, takedown, datos mínimos, cookie admin
+- [x] **Disclaimer en footer** — footer muestra "Not affiliated with Spotify AB." / "Sin afiliación con Spotify AB." sin claims extra
 
 ---
 

@@ -1,14 +1,13 @@
-import re
 import sys
 from time import monotonic
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from src.config import ConfigManager, MAX_TRACKS_PER_REQUEST
+from src.spotify_url import resolve_spotify_url
 from src.spotify_client import SpotifyClient
 
 router = APIRouter(tags=["spotify"])
@@ -16,18 +15,6 @@ _mgr = ConfigManager()
 
 _PLAYLIST_INFO_TTL_SECONDS = 600
 _PLAYLIST_INFO_CACHE: dict[str, tuple[float, dict]] = {}
-_SPOTIFY_URL_RE = re.compile(
-    r"open\.spotify\.com/(?:intl-[a-z]+/)?(track|album|playlist)/([A-Za-z0-9]+)"
-)
-
-
-def _parse_url(url: str) -> Optional[dict]:
-    m = _SPOTIFY_URL_RE.search(url)
-    if not m:
-        return None
-    return {"kind": m.group(1), "id": m.group(2)}
-
-
 def _get_client() -> SpotifyClient:
     cfg = _mgr.load_config()
     if not cfg or not cfg.get("spotify_client_id"):
@@ -122,7 +109,12 @@ def resolve_url(
     limit: int = Query(MAX_TRACKS_PER_REQUEST, ge=1),
 ):
     """Unified resolver. Returns kind + info + tracks (paginated for playlists)."""
-    parsed = _parse_url(url)
+    try:
+        parsed = resolve_spotify_url(url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Spotify shortlink lookup failed: {exc}") from exc
     if not parsed:
         raise HTTPException(400, "URL must be a Spotify track, album, or playlist link.")
 
@@ -170,6 +162,7 @@ def resolve_url(
             "spotify_id":    t.get("id", ""),
             "year":          (album.get("release_date") or "")[:4],
             "track_number":  t.get("track_number", 1),
+            "lyrics":        t.get("lyrics") or t.get("lyrics_text") or "",
         }
         return {
             "kind": "track",
@@ -204,6 +197,7 @@ def resolve_url(
             "spotify_id":    t.get("id", ""),
             "year":          (album.get("release_date") or "")[:4],
             "track_number":  t.get("track_number", 1),
+            "lyrics":        t.get("lyrics") or t.get("lyrics_text") or "",
         })
     sliced = tracks[offset:offset + limit]
     return {

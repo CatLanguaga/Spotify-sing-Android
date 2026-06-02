@@ -3,6 +3,7 @@ import { API_BASE, api } from '../api/client'
 import { triggerBrowserDownload } from '../api/download'
 import type { SpotifyTrack, TrackDownloadResponse } from '../api/types'
 import { useToast } from './toast-context'
+import { usePreferences } from '../preferences'
 
 interface Props {
   track: SpotifyTrack
@@ -22,6 +23,7 @@ export function QuickTrackModal({ track, onClose }: Props) {
   const [quality, setQuality] = useState(320)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const { t } = usePreferences()
   const esRef = useRef<EventSource | null>(null)
 
   // Close any open SSE stream when the modal unmounts.
@@ -30,7 +32,7 @@ export function QuickTrackModal({ track, onClose }: Props) {
   const downloadNow = async () => {
     if (loading) return
     setLoading(true)
-    toast('Track agregado a descarga', 'info')
+    toast(t('trToastAdded'), 'info')
     try {
       // /download/track is non-blocking: returns item_id immediately and runs
       // the actual download in a background thread. We must wait for the SSE
@@ -45,7 +47,7 @@ export function QuickTrackModal({ track, onClose }: Props) {
       if (res.needs_review) {
         // Low-confidence match needs manual selection — not available in this
         // modal. Send the user to the track table flow.
-        toast('Coincidencia dudosa — usa la tabla para elegir la fuente', 'error')
+        toast(t('qmToastLowConf'), 'error')
         setLoading(false)
         return
       }
@@ -58,14 +60,14 @@ export function QuickTrackModal({ track, onClose }: Props) {
           const data = JSON.parse(e.data) as { state?: string; error?: string }
           if (data.state === 'done') {
             es.close()
-            toast('Descarga lista', 'success')
+            toast(t('trToastReady'), 'success')
             triggerBrowserDownload(`${API_BASE}/queue/${res.item_id}/file`)
             onClose()
           } else if (data.state === 'error') {
             es.close()
             const msg = data.error === 'geo_restricted'
-              ? 'Restringido por región — intenta con VPN'
-              : (data.error ?? 'Error al descargar')
+              ? t('trGeoRestricted')
+              : (data.error ?? t('qmToastFailed'))
             toast(msg, 'error')
             setLoading(false)
           }
@@ -74,11 +76,11 @@ export function QuickTrackModal({ track, onClose }: Props) {
 
       es.onerror = () => {
         es.close()
-        toast('Conexión perdida', 'error')
+        toast(t('trToastConnLost'), 'error')
         setLoading(false)
       }
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Error al descargar', 'error')
+      toast(err instanceof Error ? err.message : t('qmToastFailed'), 'error')
       setLoading(false)
     }
   }
@@ -103,16 +105,16 @@ export function QuickTrackModal({ track, onClose }: Props) {
           )}
         </div>
         <div className="quick-body">
-          <div className="kicker">Track detectado</div>
+          <div className="kicker">{t('qmTrackDetected')}</div>
           <h2 id="quick-track-title">{track.name}</h2>
           <p>{track.all_artists || track.artist}</p>
           <div className="quick-meta">
-            <span>{track.album || 'Single'}</span>
+            <span>{track.album || t('qmSingle')}</span>
             <span>{fmtDur(track.duration_ms)}</span>
           </div>
           <div className="quick-options">
             <label>
-              Formato
+              {t('qmFormat')}
               <select value={fmt} onChange={e => setFmt(e.target.value)} disabled={loading}>
                 <option value="mp3">mp3</option>
                 <option value="m4a">m4a</option>
@@ -120,7 +122,7 @@ export function QuickTrackModal({ track, onClose }: Props) {
               </select>
             </label>
             <label>
-              Calidad
+              {t('qmQuality')}
               <select value={quality} onChange={e => setQuality(Number(e.target.value))} disabled={loading}>
                 <option value={320}>320 kbps</option>
                 <option value={192}>192 kbps</option>
@@ -130,10 +132,10 @@ export function QuickTrackModal({ track, onClose }: Props) {
           </div>
           <div className="quick-actions">
             <button className="btn btn-ghost" type="button" onClick={onClose} disabled={loading}>
-              Cancelar
+              {t('qmCancel')}
             </button>
             <button className="btn btn-accent" type="button" onClick={downloadNow} disabled={loading}>
-              {loading ? <><span className="spinner" /> Descargando...</> : 'Descargar ahora'}
+              {loading ? <><span className="spinner" /> {t('qmDownloading')}</> : t('qmDownloadNow')}
             </button>
           </div>
         </div>

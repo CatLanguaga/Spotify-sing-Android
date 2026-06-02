@@ -7,7 +7,7 @@ import type { ResolvedPayload, SpotifyTrack } from '../api/types'
 
 function ResultsSkeleton() {
   return (
-    <section className="results" id="results" aria-label="Cargando resultados">
+    <section className="results" id="results" aria-label="Loading results">
       <div className="pl-card loading-card">
         <div className="pl-head">
           <span className="sk cover-sk-lg" />
@@ -53,11 +53,11 @@ export function AppView() {
           if (p.kind === 'track' && p.tracks[0]) {
             setPayload(null)
             setQuickTrack(p.tracks[0])
-            toast('Track listo para descargar', 'success')
+            toast('Track ready to download', 'success')
           } else {
             setQuickTrack(null)
             setPayload(p)
-            toast(`${p.tracks.length} tracks cargados`, 'success')
+            toast(`${p.tracks.length} tracks loaded`, 'success')
           }
         }}
         onError={msg => toast(msg, 'error')}

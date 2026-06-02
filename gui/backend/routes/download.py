@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -24,6 +25,7 @@ from gui.backend.models import QueueItem, QueueStatus
 from gui.backend.routes import queue as queue_routes
 from src.config import ConfigManager
 from src.downloader import download_audio, find_ffmpeg
+from src.spotify_url import resolve_spotify_url
 from src.spotify_client import SpotifyClient
 from src.youtube_client import YouTubeClient
 
@@ -40,16 +42,38 @@ _YT_CACHE: Dict[str, dict] = {}
 _YT_CACHE_LOCK = threading.Lock()
 _YT_CACHE_TTL = 3600  # seconds
 
-_SPOTIFY_URL_RE = re.compile(
-    r"open\.spotify\.com/(?:intl-[a-z]+/)?(track|album|playlist)/([A-Za-z0-9]+)"
-)
-
 REVIEW_SCORE_THRESHOLD = 65  # below this, ask user to review (when manual_review_enabled)
 
 # Cap simultaneous YouTube downloads so a 50-track batch doesn't saturate
-# network/CPU. The 50 requests queue; only N actually pull audio at once.
-_MAX_CONCURRENT_DOWNLOADS = int(os.environ.get("SPOTIFY_MAX_CONCURRENT_DOWNLOADS", 3))
-_DOWNLOAD_SEMAPHORE = threading.Semaphore(_MAX_CONCURRENT_DOWNLOADS)
+# network/CPU. The limit is configurable at runtime from config/env.
+def _download_limit() -> int:
+    cfg = _config.load_config() or {}
+    raw = cfg.get("max_concurrent_downloads", os.environ.get("SPOTIFY_MAX_CONCURRENT_DOWNLOADS", 3))
+    try:
+        return max(1, min(5, int(raw)))
+    except (TypeError, ValueError):
+        return 3
+
+
+class _DownloadGate:
+    def __init__(self) -> None:
+        self._cond = threading.Condition()
+        self._active = 0
+
+    def __enter__(self):
+        with self._cond:
+            while self._active >= _download_limit():
+                self._cond.wait(timeout=0.5)
+            self._active += 1
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        with self._cond:
+            self._active = max(0, self._active - 1)
+            self._cond.notify_all()
+
+
+_DOWNLOAD_GATE = _DownloadGate()
 
 # In-memory store for ZIP batch jobs: job_id -> {state, progress, zip_path, ...}
 _BATCH_JOBS: Dict[str, dict] = {}
@@ -88,10 +112,10 @@ class DependencyStatus(BaseModel):
 
 
 def _detect(url: str) -> Optional[dict]:
-    m = _SPOTIFY_URL_RE.search(url)
-    if not m:
+    parsed = resolve_spotify_url(url)
+    if not parsed:
         return None
-    return {"type": m.group(1), "id": m.group(2)}
+    return {"type": parsed["kind"], "id": parsed["id"]}
 
 
 def _get_spotify_client() -> SpotifyClient:
@@ -125,6 +149,14 @@ def _check_dependencies() -> DependencyStatus:
         pillow=pillow_ok,
         ready=ffmpeg_ok and pytubefix_ok and mutagen_ok and pillow_ok,
     )
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _new_job(url: str, kind: str) -> str:
@@ -175,7 +207,11 @@ def _run_direct_job(job_id: str, url: str, fmt: str, quality: int) -> None:
         _update_job(job_id, state="error", error=f"Missing dependencies: {', '.join(missing)}")
         return
 
-    parsed = _detect(url)
+    try:
+        parsed = _detect(url)
+    except Exception as exc:
+        _update_job(job_id, state="error", error=f"Spotify URL lookup failed: {exc}")
+        return
     if not parsed:
         _update_job(job_id, state="error", error="Invalid Spotify URL")
         return
@@ -274,7 +310,10 @@ def download_direct(payload: DirectDownloadRequest, background_tasks: Background
         missing = [k for k, v in deps.model_dump().items() if v is False and k != "ready"]
         raise HTTPException(503, f"Server missing dependencies: {', '.join(missing)}")
 
-    parsed = _detect(payload.url)
+    try:
+        parsed = _detect(payload.url)
+    except Exception as exc:
+        raise HTTPException(502, f"Spotify URL lookup failed: {exc}") from exc
     if not parsed:
         raise HTTPException(400, "URL must be a Spotify track, album, or playlist link.")
 
@@ -339,6 +378,7 @@ def _resolve_track(spotify_id: str, fmt: str, quality: int) -> dict:
         "track_number":  track_number,
         "spotify_id":    spotify_id,
         "spotify_url":   f"https://open.spotify.com/track/{spotify_id}",
+        "lyrics":        t.get("lyrics") or t.get("lyrics_text") or "",
     }
 
     return {
@@ -386,7 +426,7 @@ def _bg_download(item_id: str, youtube_url: str, track_info: dict, fmt: str, qua
     queue_routes.LOCAL_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
     # Block here until a slot frees up; limits concurrent YouTube pulls.
-    with _DOWNLOAD_SEMAPHORE:
+    with _DOWNLOAD_GATE:
         ok, msg, local_path = download_audio(
             youtube_url,
             str(queue_routes.LOCAL_TEMP_DIR),
@@ -403,7 +443,13 @@ def _bg_download(item_id: str, youtube_url: str, track_info: dict, fmt: str, qua
             msg = "geo_restricted"
 
     if ok and local_path:
-        queue_routes._patch_item(item_id, local_path=local_path, status=QueueStatus.done)
+        audio_sha256 = _sha256_file(local_path)
+        queue_routes._patch_item(
+            item_id,
+            local_path=local_path,
+            audio_sha256=audio_sha256,
+            status=QueueStatus.done,
+        )
     else:
         queue_routes._patch_item(item_id, status=QueueStatus.error)
 
@@ -412,6 +458,7 @@ def _bg_download(item_id: str, youtube_url: str, track_info: dict, fmt: str, qua
         100 if ok else 0,
         state="done" if ok else "error",
         error=msg if not ok else None,
+        sha256=audio_sha256 if ok and local_path else None,
     )
 
 
@@ -549,7 +596,7 @@ def _update_batch(job_id: str, **patch) -> None:
 def _run_batch_zip_job(job_id: str, spotify_ids: List[str], fmt: str, quality: int) -> None:
     """Resolve + download each track into a job temp dir, then zip them all.
 
-    Respects _DOWNLOAD_SEMAPHORE per track. Tracks progress in _BATCH_JOBS.
+    Respects _DOWNLOAD_GATE per track. Tracks progress in _BATCH_JOBS.
     Individual track failures don't abort the batch.
     """
     work_dir = queue_routes.LOCAL_TEMP_DIR / f"batch_{job_id}"
@@ -565,7 +612,7 @@ def _run_batch_zip_job(job_id: str, spotify_ids: List[str], fmt: str, quality: i
         nonlocal done, errors
         try:
             data = _resolve_track(sid, fmt, quality)
-            with _DOWNLOAD_SEMAPHORE:
+            with _DOWNLOAD_GATE:
                 ok, _msg, local_path = download_audio(
                     data["youtube_url"], str(work_dir), data["track_info"],
                     fmt=fmt, quality=quality,
@@ -580,7 +627,7 @@ def _run_batch_zip_job(job_id: str, spotify_ids: List[str], fmt: str, quality: i
             done += 1
             _update_batch(job_id, progress={"done": done, "total": total})
 
-    # One thread per track; the semaphore inside caps real concurrency.
+    # One thread per track; the download gate inside caps real concurrency.
     threads = [threading.Thread(target=_one, args=(sid,), daemon=True) for sid in spotify_ids]
     for t in threads:
         t.start()

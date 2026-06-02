@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { usePreferences } from '../preferences'
 
 interface TrackPaginatorProps {
   currentPage: number
@@ -31,6 +32,7 @@ function pageNumbers(current: number, total: number): (number | '...')[] {
 }
 
 export function TrackPaginator({ currentPage, totalPages, total, loading, onPageChange }: TrackPaginatorProps) {
+  const { t } = usePreferences()
   const from = (currentPage - 1) * PAGE_SIZE + 1
   const to = Math.min(currentPage * PAGE_SIZE, total)
   const pages = pageNumbers(currentPage, totalPages)
@@ -44,11 +46,11 @@ export function TrackPaginator({ currentPage, totalPages, total, loading, onPage
   }
 
   return (
-    <nav className="track-paginator" aria-label="Navegación de páginas">
+    <nav className="track-paginator" aria-label={t('pgNavAria')}>
       <div className="paginator-info">
         {loading
-          ? <span className="paginator-loading"><span className="spinner" /> Cargando página {currentPage}…</span>
-          : <span>Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> · tracks {from}–{to} de {total}</span>
+          ? <span className="paginator-loading"><span className="spinner" /> {t('pgLoading')(currentPage)}</span>
+          : <span>{t('pgPageOf')(currentPage, totalPages, from, to, total)}</span>
         }
       </div>
       <div className="paginator-controls">
@@ -57,9 +59,9 @@ export function TrackPaginator({ currentPage, totalPages, total, loading, onPage
           className="paginator-btn"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1 || loading}
-          aria-label="Página anterior"
+          aria-label={t('pgPrevAria')}
         >
-          ← Anterior
+          {t('pgPrev')}
         </button>
 
         <div className="paginator-pages">
@@ -84,9 +86,9 @@ export function TrackPaginator({ currentPage, totalPages, total, loading, onPage
           className="paginator-btn"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || loading}
-          aria-label="Página siguiente"
+          aria-label={t('pgNextAria')}
         >
-          Siguiente →
+          {t('pgNext')}
         </button>
 
         <div className="paginator-jump">
@@ -95,11 +97,11 @@ export function TrackPaginator({ currentPage, totalPages, total, loading, onPage
             min={1}
             max={totalPages}
             value={jump}
-            placeholder="Pág."
+            placeholder={t('pgJumpPlaceholder')}
             disabled={loading}
             onChange={e => setJump(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') goToJump() }}
-            aria-label="Ir a página"
+            aria-label={t('pgGoAria')}
           />
           <button
             type="button"
@@ -107,7 +109,7 @@ export function TrackPaginator({ currentPage, totalPages, total, loading, onPage
             onClick={goToJump}
             disabled={loading || !jump}
           >
-            Ir
+            {t('pgGo')}
           </button>
         </div>
       </div>

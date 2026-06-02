@@ -25,6 +25,7 @@ class SpotifyConfig(BaseModel):
     default_range_from: int = 1
     default_range_to: Optional[int] = None
     manual_review_enabled: bool = False
+    max_concurrent_downloads: int = 3
 
 
 class QueueItem(BaseModel):
@@ -43,6 +44,7 @@ class QueueItem(BaseModel):
     quality: int = 320
     year: str = ''
     track_number: int = 0
+    audio_sha256: Optional[str] = None
 
 
 class QueuePatch(BaseModel):

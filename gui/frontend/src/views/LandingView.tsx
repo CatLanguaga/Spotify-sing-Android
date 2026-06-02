@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { HeroSearch } from '../components/HeroSearch'
 import { TutorialSection } from '../components/TutorialSection'
 import { useToast } from '../components/toast-context'
+import { usePreferences } from '../preferences'
 import type { ResolvedPayload, SpotifyTrack } from '../api/types'
 
 const PlaylistCard = lazy(() =>
@@ -12,9 +13,9 @@ const QuickTrackModal = lazy(() =>
   import('../components/QuickTrackModal').then(module => ({ default: module.QuickTrackModal })),
 )
 
-function ResultsSkeleton() {
+function ResultsSkeleton({ ariaLabel }: { ariaLabel: string }) {
   return (
-    <section className="results" id="results" aria-label="Cargando resultados">
+    <section className="results" id="results" aria-label={ariaLabel}>
       <div className="pl-card loading-card">
         <div className="pl-head">
           <span className="sk cover-sk-lg" />
@@ -55,6 +56,7 @@ export function LandingView({ focusSection }: LandingViewProps) {
   const [searching, setSearching] = useState(false)
   const [quickTrack, setQuickTrack] = useState<SpotifyTrack | null>(null)
   const { toast } = useToast()
+  const { t } = usePreferences()
 
   useEffect(() => {
     if (!focusSection || payload || quickTrack || searching) return
@@ -71,18 +73,18 @@ export function LandingView({ focusSection }: LandingViewProps) {
           if (p.kind === 'track' && p.tracks[0]) {
             setPayload(null)
             setQuickTrack(p.tracks[0])
-            toast('Track listo para descargar', 'success')
+            toast(t('plTrackReady'), 'success')
           } else {
             setQuickTrack(null)
             setPayload(p)
-            toast(`${p.tracks.length} tracks cargados`, 'success')
+            toast(t('plTracksLoaded')(p.tracks.length), 'success')
           }
         }}
         onError={msg => toast(msg, 'error')}
         onLoadingChange={setSearching}
       />
 
-      {searching && !payload && !quickTrack && <ResultsSkeleton />}
+      {searching && !payload && !quickTrack && <ResultsSkeleton ariaLabel={t('plLoadingResults')} />}
       <Suspense fallback={null}>
         {payload && <PlaylistCard payload={payload} sourceUrl={sourceUrl} />}
         {quickTrack && <QuickTrackModal track={quickTrack} onClose={() => setQuickTrack(null)} />}

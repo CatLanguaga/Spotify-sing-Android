@@ -14,7 +14,7 @@ _ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).parent.parent.pa
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from gui.backend.routes import config, download, queue, scripts, spotify, youtube
+from gui.backend.routes import admin, config, download, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
 
 
@@ -52,8 +52,10 @@ app.add_middleware(
     ],
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
+app.include_router(admin.router, prefix="/api")
 app.include_router(config.router, prefix="/api")
 app.include_router(queue.router, prefix="/api")
 app.include_router(youtube.router, prefix="/api")
