@@ -8,8 +8,10 @@ services:
       dockerfile: Dockerfile
     image: spotify-sync:latest
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    # Coolify's reverse proxy (Traefik) routes the FQDN to this port — do NOT
+    # publish to the host (`ports:`) or it collides with the proxy on :8000.
+    expose:
+      - "8000"
     environment:
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
