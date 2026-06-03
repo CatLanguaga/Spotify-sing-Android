@@ -313,7 +313,7 @@ class YouTubeClient:
         try:
             from pytubefix import YouTube
             with without_env_proxies():
-                yt = YouTube(video_url, client='MWEB')
+                yt = YouTube(video_url, client='WEB')
             return {'title': yt.title, 'author': yt.author, 'length_seconds': yt.length}
         except Exception:
             return None

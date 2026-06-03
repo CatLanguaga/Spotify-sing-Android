@@ -1,7 +1,8 @@
 spotipy==2.23.0
 google-api-python-client==2.108.0
 requests==2.31.0
-pytubefix>=6.0.0
+pytubefix>=8.0.0
+nodejs-wheel-binaries>=20.0.0
 mutagen>=1.47.0
 Pillow>=10.0.0
 fastapi>=0.111.0

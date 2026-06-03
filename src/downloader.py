@@ -157,7 +157,7 @@ def download_audio(
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
         with without_env_proxies():
-            yt = YouTube(youtube_url)
+            yt = YouTube(youtube_url, client='WEB')
 
         if on_progress:
             _total = [0]
