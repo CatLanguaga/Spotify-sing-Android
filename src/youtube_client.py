@@ -4,6 +4,7 @@ Uses pytubefix (no API key required).
 """
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from difflib import SequenceMatcher
 
@@ -127,30 +128,97 @@ def _score_match(
 
 class YouTubeClient:
 
+    @staticmethod
+    def _parse_duration(text: str) -> int | None:
+        """Convert 'H:MM:SS' or 'M:SS' string to total seconds."""
+        if not text:
+            return None
+        try:
+            parts = [int(p) for p in text.strip().split(':')]
+            if len(parts) == 2:
+                return parts[0] * 60 + parts[1]
+            if len(parts) == 3:
+                return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        except (ValueError, AttributeError):
+            pass
+        return None
+
     def _search_raw_query(self, query: str, limit: int = 5) -> list[dict]:
-        """Execute a raw YouTube query and return up to `limit` deduped results."""
+        """Execute a raw YouTube query and return up to `limit` deduped results.
+
+        Parses the raw innertube JSON directly to extract duration, title, and
+        channel without triggering extra per-video HTTP requests (which causes
+        BotDetection on server/datacenter IPs).
+        """
         seen_ids: set[str] = set()
         results: list[dict] = []
         try:
             with without_env_proxies():
                 search = Search(query)
-                videos = search.videos or []
+                raw_json = search.fetch_query()
         except Exception as exc:
             raise RuntimeError(f"YouTube search failed for '{query}': {exc}") from exc
-        for v in videos:
+
+        try:
+            sections = raw_json['contents']['twoColumnSearchResultsRenderer'][
+                'primaryContents']['sectionListRenderer']['contents']
+        except KeyError:
+            try:
+                sections = raw_json['onResponseReceivedCommands'][0][
+                    'appendContinuationItemsAction']['continuationItems']
+            except (KeyError, IndexError):
+                return results
+
+        for section in sections:
             if len(results) >= limit:
                 break
-            vid_id = getattr(v, 'video_id', None)
-            if not vid_id or vid_id in seen_ids:
-                continue
-            seen_ids.add(vid_id)
-            results.append({
-                'title':     v.title or '',
-                'url':       f'https://www.youtube.com/watch?v={vid_id}',
-                'duration':  getattr(v, 'length', None),
-                'channel':   getattr(v, 'author', None),
-                'thumbnail': getattr(v, 'thumbnail_url', None),
-            })
+            item_renderer = section.get('itemSectionRenderer', {})
+            for item in item_renderer.get('contents', []):
+                if len(results) >= limit:
+                    break
+                vr = item.get('videoRenderer')
+                if not vr:
+                    continue
+                vid_id = vr.get('videoId')
+                if not vid_id or vid_id in seen_ids:
+                    continue
+                seen_ids.add(vid_id)
+
+                title = ''
+                try:
+                    title = vr['title']['runs'][0]['text']
+                except (KeyError, IndexError):
+                    pass
+
+                channel = ''
+                try:
+                    channel = vr['longBylineText']['runs'][0]['text']
+                except (KeyError, IndexError):
+                    try:
+                        channel = vr['shortBylineText']['runs'][0]['text']
+                    except (KeyError, IndexError):
+                        pass
+
+                duration = None
+                try:
+                    duration = self._parse_duration(vr['lengthText']['simpleText'])
+                except KeyError:
+                    pass
+
+                thumbnail = None
+                try:
+                    thumbs = vr['thumbnail']['thumbnails']
+                    thumbnail = thumbs[-1]['url'] if thumbs else None
+                except (KeyError, IndexError):
+                    pass
+
+                results.append({
+                    'title':     title,
+                    'url':       f'https://www.youtube.com/watch?v={vid_id}',
+                    'duration':  duration,
+                    'channel':   channel,
+                    'thumbnail': thumbnail,
+                })
         return results
 
     def search_song_results(
@@ -200,16 +268,25 @@ class YouTubeClient:
             f'{artist} {name}',
         ]
 
+        batches: dict[str, list[dict]] = {}
+
+        def _fetch(q):
+            try:
+                return q, self._search_raw_query(q, limit=limit)
+            except Exception:
+                return q, []
+
+        with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+            futures = {pool.submit(_fetch, q): q for q in queries}
+            for future in as_completed(futures):
+                q, result = future.result()
+                batches[q] = result
+
         all_results: list[dict] = []
         seen_ids: set[str] = set()
 
-        for i, query in enumerate(queries):
-            try:
-                batch = self._search_raw_query(query, limit=limit)
-            except Exception:
-                continue
-
-            for r in batch:
+        for query in queries:
+            for r in batches.get(query, []):
                 url = r.get('url', '')
                 vid_id = url.split('v=')[-1] if 'v=' in url else url
                 if vid_id in seen_ids:
@@ -224,13 +301,6 @@ class YouTubeClient:
                 r['score'] = round(_score_match(name, artist, duration_sec, r, is_live), 1)
                 all_results.append(r)
 
-            # Early exit on first query if we already have a high-confidence match
-            if i == 0 and all_results:
-                best = max(all_results, key=lambda x: x['score'])
-                if best['score'] >= 90:
-                    top3 = sorted(all_results, key=lambda x: x['score'], reverse=True)[:3]
-                    return best, best['score'], top3
-
         if not all_results:
             return None, 0.0, []
 
@@ -243,7 +313,7 @@ class YouTubeClient:
         try:
             from pytubefix import YouTube
             with without_env_proxies():
-                yt = YouTube(video_url)
+                yt = YouTube(video_url, client='MWEB')
             return {'title': yt.title, 'author': yt.author, 'length_seconds': yt.length}
         except Exception:
             return None

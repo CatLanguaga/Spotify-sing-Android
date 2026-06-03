@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import shutil
 import sys
@@ -24,6 +25,7 @@ from src.config import ConfigManager
 from src.downloader import download_audio
 
 router = APIRouter(tags=["queue"])
+logger = logging.getLogger(__name__)
 
 QUEUE_FILE     = Path(os.environ.get("SPOTIFY_QUEUE_FILE", _ROOT / "data" / "queue.json"))
 LOCAL_TEMP_DIR = Path(os.environ.get("DOWNLOAD_DIR", _ROOT / "temp_downloads"))
@@ -199,14 +201,10 @@ def serve_queue_file(item_id: str, background_tasks: BackgroundTasks):
         try:
             Path(local_path).unlink(missing_ok=True)
         except Exception:
-            pass
-        # Clear local_path from queue item so frontend knows file is gone
-        current = _load()
-        for it in current:
-            if it["id"] == item_id:
-                it["local_path"] = None
-                break
-        _save(current)
+            logger.exception("cleanup unlink failed for %s", local_path)
+        # Race-safe: _patch_item serializes via _QUEUE_LOCK so concurrent
+        # _bg_download writes for other items don't get clobbered.
+        _patch_item(item_id, local_path=None)
 
     background_tasks.add_task(_cleanup)
 

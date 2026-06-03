@@ -444,6 +444,95 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ---
 
+## Fase 11 — Hardening de seguridad admin
+
+> Motivación: el flujo actual de admin (`gui/backend/routes/admin.py`) usa password único en env (`ADMIN_PASSWORD`), default `"admin"` si no se configura, sin rate-limit, sin lockout, sin usuario en DB, sin rotación de secret, sin 2FA. Bastan curiosidad + diccionario para entrar. Esta fase eleva el coste de ataque y aísla el panel sensible.
+
+### 11.1 — Modelo de usuario admin en DB
+
+- [ ] Tabla `admin_users` (SQLite por defecto, mismo dir que `queue.json` → `data/admin.sqlite3`): columnas `id`, `username` (unique, citext-like lowercase), `password_hash`, `password_algo`, `created_at`, `updated_at`, `last_login_at`, `failed_attempts`, `locked_until`, `totp_secret` (nullable), `is_active`.
+- [ ] Hash con **Argon2id** (`argon2-cffi`) — params: `time_cost=3`, `memory_cost=65536`, `parallelism=2`. Fallback `bcrypt` (cost 12) si Argon2 no disponible. Nunca SHA/MD5.
+- [ ] Migración: si `ADMIN_PASSWORD` env existe y tabla vacía, sembrar usuario `admin` con ese password al primer arranque, luego ignorar env en arranques siguientes (loggear `legacy env seed completed`).
+- [ ] CLI `python -m gui.backend.admin_cli create-user <username>` que pide password por stdin (no argv) + valida fuerza mínima (≥ 12 chars, mezcla clases).
+- [ ] CLI `reset-password <username>`, `lock <username>`, `unlock <username>`, `list-users`.
+- [ ] Eliminar default `"admin"` del fallback en `_admin_password()` — si no hay usuarios en DB y no hay env, devolver 503 en `/admin/login` con mensaje `"Admin not provisioned. Run CLI to create user."`.
+
+### 11.2 — Sesiones firmadas + rotación de secret
+
+- [ ] Reemplazar HMAC-SHA256 manual por `itsdangerous.TimestampSigner` o `authlib` con `ADMIN_SESSION_SECRET` obligatorio (≥ 32 bytes random, sin fallback al password).
+- [ ] Generar `ADMIN_SESSION_SECRET` automático al primer arranque si no existe (guardar en `data/.session_secret` con perms `0600`); rotación manual via CLI invalida todas las sesiones.
+- [ ] Cookie: añadir `__Host-` prefix cuando `ADMIN_COOKIE_SECURE=1` (fuerza Secure + path=/ + sin Domain), `SameSite=Strict` (no `Lax`) para reducir CSRF cross-site.
+- [ ] Sesión incluye `user_id`, `issued_at`, `jti` (uuid). Tabla `admin_sessions(jti, user_id, created_at, expires_at, revoked_at, ip_hash, ua_hash)` para revocación server-side.
+- [ ] Endpoint `POST /admin/logout-all` revoca todas las sesiones del usuario (útil tras sospecha).
+- [ ] TTL default 24h reducido a **2h** + sliding refresh; idle timeout 30 min.
+
+### 11.3 — Rate-limit y lockout
+
+- [ ] `slowapi` (FastAPI middleware) — `/admin/login`: **5 intentos / 15 min por IP** + **10 / hora por username**. Excede → 429 con `Retry-After`.
+- [ ] Lockout progresivo por usuario: 5 fallos consecutivos → `locked_until = now + 15 min`; 10 fallos → 1h; 20 → requiere unlock manual via CLI.
+- [ ] Respuesta uniforme en login fallido (401 genérico) sin distinguir "user not found" vs "wrong password" — evita user enumeration.
+- [ ] Delay artificial constante (~200ms) en login para mitigar timing-attacks.
+
+### 11.4 — 2FA TOTP opcional (recomendado para deploy público)
+
+- [ ] `pyotp` para TOTP RFC 6238 (30s window, 6 digits).
+- [ ] Flujo enrolamiento: vista `/settings` autenticada muestra QR + secret; user confirma con código antes de activar.
+- [ ] Login con 2FA: tras password correcto, retornar `{ "step": "totp" }` + token corto efímero (≤ 5 min, scope=`totp_pending`); segundo POST `/admin/login/totp` con código valida y emite cookie de sesión completa.
+- [ ] Backup codes (10 códigos de un uso) generados al activar, mostrados una sola vez, almacenados hasheados.
+
+### 11.5 — Ofuscación de superficie
+
+- [ ] Mover ruta de login admin a path no descubrible: env `ADMIN_PATH_PREFIX` (default `/admin`), si configurado a `/_x/<token>` el resto del montaje sigue ese prefix. **No seguridad por oscuridad sola** — capa adicional, no reemplazo de auth.
+- [ ] Quitar link "Admin" visible en `Footer.tsx` cuando `ADMIN_FOOTER_LINK=false` (env). Default `true` para self-host, `false` recomendado prod público.
+- [ ] `/admin/*` y `/settings` devuelven **404 idéntico al de SPA** (no 401) cuando no hay sesión y `ADMIN_STEALTH=true` — el atacante no confirma existencia del panel.
+- [ ] Banner de `Server:` header eliminado / sobrescrito a `nginx` genérico para no filtrar uvicorn + version.
+
+### 11.6 — Endurecimiento de transporte y headers
+
+- [ ] Middleware de security headers (`secure` lib o manual): `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`.
+- [ ] CSP estricta: `default-src 'self'; img-src 'self' https://i.scdn.co data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'`.
+- [ ] Forzar HTTPS redirect cuando `FORCE_HTTPS=1`.
+- [ ] CSRF token sincronizado (double-submit cookie) en todos los `POST /admin/*` salvo `/login` (que ya es origen del session-set).
+
+### 11.7 — Audit log
+
+- [ ] Tabla `admin_audit(id, ts, user_id, ip_hash, action, target, result, meta_json)` con append-only.
+- [ ] Acciones loggeadas: `login_ok`, `login_fail`, `lockout`, `password_change`, `totp_enable`, `totp_disable`, `config_write`, `session_revoke`, `user_create`, `user_delete`.
+- [ ] IP y UA almacenados como `sha256(value + per-install-pepper)[:16]` — útil para correlación, no para identificación reversible.
+- [ ] Endpoint `GET /admin/audit?limit=&since=` (paginado) para revisión.
+- [ ] Log a stdout en JSON estructurado además de DB (apto para ingestión Coolify/Loki).
+
+### 11.8 — Encriptación at-rest de credenciales sensibles
+
+- [ ] `SPOTIFY_CLIENT_SECRET` y `totp_secret` cifrados en DB con AES-256-GCM (key derivada de `ADMIN_DATA_KEY` env, ≥ 32 bytes). `cryptography.fernet` aceptable como alternativa.
+- [ ] Key separada del session secret — distintos blast-radius.
+- [ ] Helper `crypto.encrypt(plaintext) → bytes`, `crypto.decrypt(blob) → str` con versión de algoritmo prefijada para migraciones futuras.
+- [ ] Backups `data/*.sqlite3` excluyen exportar la key; documentar que sin `ADMIN_DATA_KEY` el backup es inútil (propiedad deseada).
+
+### 11.9 — Validación y abuso
+
+- [ ] Pydantic strict mode en todos los body de `/admin/*` (`extra="forbid"`, longitudes máximas, regex de username `^[a-z0-9_.-]{3,32}$`).
+- [ ] Rechazar passwords del top-10k de `haveibeenpwned` (lista local descargada en build, no API externa).
+- [ ] Limitar tamaño body `/admin/*` a 8 KB (middleware).
+- [ ] Bloquear `User-Agent` vacío o `curl`/`python-requests` sin header custom en `/admin/*` (heurística suave; activable por env).
+
+### 11.10 — Documentación + ops
+
+- [ ] `README-docker.md`: sección "Securing your admin panel" con checklist de envs obligatorias en producción (`ADMIN_SESSION_SECRET`, `ADMIN_DATA_KEY`, `ADMIN_COOKIE_SECURE=1`, `FORCE_HTTPS=1`, `ADMIN_STEALTH=true`, `ADMIN_FOOTER_LINK=false`).
+- [ ] `.env.example` actualizado con los nuevos vars + comentarios `# REQUIRED in production`.
+- [ ] Script `tools/check-admin-hardening.py` que valida envs, perms de `data/.session_secret`, presencia de usuario admin, y reporta semáforo verde/ámbar/rojo.
+- [ ] Runbook breve: cómo rotar secret, cómo unlockear usuario, cómo revocar sesiones tras compromiso.
+
+### Prioridad sugerida
+
+1. **11.1 + 11.2 + 11.3** — base imprescindible (DB user, Argon2, rate-limit, no default password).
+2. **11.6 + 11.7** — headers + audit log (bajo coste, alto valor forense).
+3. **11.5 + 11.8** — stealth + encriptación at-rest (refuerza si deploy público).
+4. **11.4** — 2FA TOTP (opcional, recomendado para multi-admin).
+5. **11.9 + 11.10** — pulido + ops.
+
+---
+
 ## Referencia técnica — Qué queda, qué se va, qué cambia
 
 | Componente | Estado |

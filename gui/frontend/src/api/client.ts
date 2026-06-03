@@ -3,7 +3,7 @@
 // by FastAPI, so a relative /api keeps working regardless of host/port/scheme.
 export const API_BASE =
   window.location.port === '5173'
-    ? `${window.location.protocol}//${window.location.hostname}:8000/api`
+    ? `${window.location.protocol}//${window.location.hostname}:8001/api`
     : '/api'
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -30,6 +31,7 @@ from src.spotify_client import SpotifyClient
 from src.youtube_client import YouTubeClient
 
 router = APIRouter(tags=["download"])
+logger = logging.getLogger(__name__)
 
 _config = ConfigManager()
 
@@ -425,16 +427,24 @@ def _bg_download(item_id: str, youtube_url: str, track_info: dict, fmt: str, qua
 
     queue_routes.LOCAL_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
+    logger.info("bg_download start item=%s url=%s fmt=%s q=%s", item_id, youtube_url, fmt, quality)
     # Block here until a slot frees up; limits concurrent YouTube pulls.
-    with _DOWNLOAD_GATE:
-        ok, msg, local_path = download_audio(
-            youtube_url,
-            str(queue_routes.LOCAL_TEMP_DIR),
-            track_info,
-            fmt=fmt,
-            quality=quality,
-            on_progress=on_progress,
-        )
+    try:
+        with _DOWNLOAD_GATE:
+            ok, msg, local_path = download_audio(
+                youtube_url,
+                str(queue_routes.LOCAL_TEMP_DIR),
+                track_info,
+                fmt=fmt,
+                quality=quality,
+                on_progress=on_progress,
+            )
+    except Exception as exc:
+        logger.exception("bg_download crashed item=%s url=%s", item_id, youtube_url)
+        queue_routes._patch_item(item_id, status=QueueStatus.error)
+        queue_routes._set_progress(item_id, 0, state="error", error=f"{type(exc).__name__}: {exc}")
+        return
+    logger.info("bg_download end item=%s ok=%s msg=%s path=%s", item_id, ok, msg, local_path)
 
     # Detect geo-restriction for a friendlier error message
     if not ok and msg:

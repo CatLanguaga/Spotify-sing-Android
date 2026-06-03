@@ -1,9 +1,13 @@
+import logging
 import os
 import sys
+import threading
+import traceback
 from contextlib import asynccontextmanager
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -13,6 +17,55 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 _ROOT = Path(os.environ.get("SPOTIFY_SYNC_ROOT", Path(__file__).parent.parent.parent))
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+# ─── Logging a archivo ──────────────────────────────────────────────────────
+_LOG_DIR = Path(os.environ.get("SPOTIFY_LOG_DIR", _ROOT / "logs"))
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FILE = _LOG_DIR / "app.log"
+
+_log_level = os.environ.get("SPOTIFY_LOG_LEVEL", "INFO").upper()
+_formatter = logging.Formatter(
+    "%(asctime)s %(levelname)s [%(name)s] [%(threadName)s] %(message)s"
+)
+_file_handler = RotatingFileHandler(
+    _LOG_FILE, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+)
+_file_handler.setFormatter(_formatter)
+_stream_handler = logging.StreamHandler()
+_stream_handler.setFormatter(_formatter)
+
+_root_logger = logging.getLogger()
+_root_logger.setLevel(_log_level)
+# Evitar handlers duplicados en reload de uvicorn
+if not any(isinstance(h, RotatingFileHandler) for h in _root_logger.handlers):
+    _root_logger.addHandler(_file_handler)
+if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, RotatingFileHandler)
+           for h in _root_logger.handlers):
+    _root_logger.addHandler(_stream_handler)
+
+for _name in ("uvicorn", "uvicorn.access", "uvicorn.error", "fastapi"):
+    _lg = logging.getLogger(_name)
+    _lg.handlers = []
+    _lg.propagate = True
+
+# Uncaught exceptions
+def _excepthook(exc_type, exc, tb):
+    logging.getLogger("uncaught").critical(
+        "Unhandled exception", exc_info=(exc_type, exc, tb)
+    )
+
+sys.excepthook = _excepthook
+
+def _thread_excepthook(args):
+    logging.getLogger("thread").critical(
+        "Unhandled thread exception in %s", args.thread.name,
+        exc_info=(args.exc_type, args.exc_value, args.exc_traceback),
+    )
+
+threading.excepthook = _thread_excepthook
+
+logger = logging.getLogger("spotify-sync")
+logger.info("Logging inicializado → %s (level=%s)", _LOG_FILE, _log_level)
 
 from gui.backend.routes import admin, config, download, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
@@ -42,6 +95,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Spotify Sync Manager", lifespan=lifespan)
 
+
+@app.middleware("http")
+async def _log_requests(request: Request, call_next):
+    log = logging.getLogger("http")
+    try:
+        response = await call_next(request)
+        log.info("%s %s -> %s", request.method, request.url.path, response.status_code)
+        return response
+    except Exception:
+        log.exception("Unhandled error on %s %s", request.method, request.url.path)
+        raise
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -49,6 +115,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,4 +152,4 @@ if frontend_dist.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("gui.backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("gui.backend.main:app", host="0.0.0.0", port=8001, reload=True)
