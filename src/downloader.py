@@ -156,8 +156,22 @@ def download_audio(
 
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
-        with without_env_proxies():
-            yt = YouTube(youtube_url, client='WEB')
+        try:
+            with without_env_proxies():
+                yt = YouTube(youtube_url, client='WEB')
+        except Exception as e:
+            # If admin uploaded cookies and YouTube still rejects, flag them
+            # as invalid so the UI surfaces "re-upload" and fall back to no
+            # cookies for the retry inside this same call.
+            msg = str(e).lower()
+            if any(tok in msg for tok in ("bot", "sign in", "consent", "not available")):
+                try:
+                    from gui.backend.admin import yt_cookies as _ytc
+                    if _ytc.is_present():
+                        _ytc.mark_invalid(reason=str(e)[:200])
+                except Exception:
+                    pass
+            raise
 
         if on_progress:
             _total = [0]

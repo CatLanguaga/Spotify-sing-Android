@@ -1,6 +1,7 @@
 """
 Configuration manager for storing and loading API credentials and settings
 """
+import logging
 import os
 import json
 from pathlib import Path
@@ -8,16 +9,81 @@ from pathlib import Path
 MAX_TRACKS_PER_REQUEST = int(os.environ.get('MAX_TRACKS_PER_REQUEST', '50'))
 MAX_CONCURRENT_DOWNLOADS_DEFAULT = int(os.environ.get('SPOTIFY_MAX_CONCURRENT_DOWNLOADS', '3'))
 
+_log = logging.getLogger(__name__)
+
+# Optional at-rest encryption for sensitive fields (currently: spotify_client_secret).
+# Lives in gui/backend/admin/crypto.py — a soft import keeps src/config.py usable
+# from the legacy CLI even if the admin package isn't installed.
+try:
+    from gui.backend.admin.crypto import (
+        encrypt as _crypto_encrypt,
+        is_encrypted as _crypto_is_encrypted,
+        try_decrypt as _crypto_try_decrypt,
+    )
+    _CRYPTO_AVAILABLE = True
+except Exception:  # pragma: no cover
+    _CRYPTO_AVAILABLE = False
+
+    def _crypto_encrypt(s):  # type: ignore[no-redef]
+        return s
+
+    def _crypto_is_encrypted(s):  # type: ignore[no-redef]
+        return False
+
+    def _crypto_try_decrypt(s):  # type: ignore[no-redef]
+        return s
+
+
+def _encrypt_secret(value):
+    """Encrypt a secret value if crypto is wired and value isn't already a ciphertext."""
+    if not value or not _CRYPTO_AVAILABLE:
+        return value
+    if _crypto_is_encrypted(value):
+        return value
+    try:
+        return _crypto_encrypt(value)
+    except Exception as e:
+        _log.warning("Failed to encrypt secret, storing plaintext: %s", e)
+        return value
+
+
+def _decrypt_secret(value):
+    """Decrypt a secret value if it's an at-rest ciphertext, else return as-is."""
+    if not value or not _CRYPTO_AVAILABLE:
+        return value
+    try:
+        return _crypto_try_decrypt(value)
+    except Exception as e:
+        _log.error("Failed to decrypt secret (wrong key or tampered): %s", e)
+        return None
+
 
 class ConfigManager:
     def __init__(self):
-        if hasattr(os, 'environ') and 'ANDROID_STORAGE' in os.environ:
+        # Priority for the config file path:
+        #   1. SPOTIFY_CONFIG_FILE env (explicit absolute path)
+        #   2. SPOTIFY_CONFIG_DIR env  (file = <dir>/config.json)
+        #   3. ANDROID_STORAGE env     (legacy mobile)
+        #   4. ~/.spotifytoyoutube      (legacy dev)
+        #
+        # Docker/Coolify deployments set SPOTIFY_CONFIG_DIR=/app/data so the file
+        # lives in the persistent volume and credentials survive redeploys.
+        env_file = os.environ.get('SPOTIFY_CONFIG_FILE')
+        env_dir = os.environ.get('SPOTIFY_CONFIG_DIR')
+        if env_file:
+            self.config_file = Path(env_file)
+            self.config_dir = self.config_file.parent
+        elif env_dir:
+            self.config_dir = Path(env_dir)
+            self.config_file = self.config_dir / 'config.json'
+        elif 'ANDROID_STORAGE' in os.environ:
             self.config_dir = Path(os.environ['ANDROID_STORAGE']) / 'spotifytoyoutube'
+            self.config_file = self.config_dir / 'config.json'
         else:
             self.config_dir = Path.home() / '.spotifytoyoutube'
-        
+            self.config_file = self.config_dir / 'config.json'
+
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.config_file = self.config_dir / 'config.json'
         self.default_download_folder = str(Path.home() / 'Music' / 'SpotifyYT')
         
     def save_config(self, spotify_client_id, spotify_client_secret, download_folder=None,
@@ -29,7 +95,7 @@ class ConfigManager:
 
         config = {
             'spotify_client_id': spotify_client_id,
-            'spotify_client_secret': spotify_client_secret,
+            'spotify_client_secret': _encrypt_secret(spotify_client_secret),
             'download_folder': download_folder or existing.get('download_folder', self.default_download_folder),
             'playlist_id': playlist_id if playlist_id is not None else existing.get('playlist_id', ''),
             'default_fmt': default_fmt if default_fmt is not None else existing.get('default_fmt', 'mp3'),
@@ -46,6 +112,32 @@ class ConfigManager:
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     
+    def migrate_at_rest_encryption(self):
+        """Re-encrypt the on-disk spotify_client_secret if it's still plaintext.
+
+        Idempotent: skipped when crypto isn't available or the secret is already
+        encrypted (v1: prefix). Returns True when a migration was performed.
+        """
+        if not _CRYPTO_AVAILABLE or not self.config_file.exists():
+            return False
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                raw = json.load(f) or {}
+        except Exception:
+            return False
+        secret = raw.get('spotify_client_secret')
+        if not secret or _crypto_is_encrypted(secret):
+            return False
+        try:
+            raw['spotify_client_secret'] = _crypto_encrypt(secret)
+        except Exception as e:
+            _log.warning("At-rest migration failed: %s", e)
+            return False
+        with open(self.config_file, 'w', encoding='utf-8') as f:
+            json.dump(raw, f, indent=2)
+        _log.info("Migrated spotify_client_secret to at-rest encryption.")
+        return True
+
     def save_download_folder(self, folder_path):
         """Save only the download folder setting"""
         config = self.load_config() or {}
@@ -77,6 +169,11 @@ class ConfigManager:
                     file_config = json.load(f) or {}
             except Exception:
                 file_config = {}
+
+        # Decrypt at-rest secret if it's a versioned ciphertext.
+        stored_secret = file_config.get('spotify_client_secret')
+        if stored_secret:
+            file_config['spotify_client_secret'] = _decrypt_secret(stored_secret)
 
         env_id = os.environ.get('SPOTIFY_CLIENT_ID')
         env_secret = os.environ.get('SPOTIFY_CLIENT_SECRET')

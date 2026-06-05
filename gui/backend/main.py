@@ -69,6 +69,11 @@ logger.info("Logging inicializado → %s (level=%s)", _LOG_FILE, _log_level)
 
 from gui.backend.routes import admin, config, download, queue, scripts, spotify, youtube
 from gui.backend.ws_runner import router as ws_router
+from gui.backend.admin.ratelimit import limiter as _admin_limiter
+from gui.backend.admin.headers import SecurityHeadersMiddleware
+from gui.backend.admin.guards import AdminGuardMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 
 class SPAStaticFiles(StaticFiles):
@@ -81,8 +86,52 @@ class SPAStaticFiles(StaticFiles):
             raise
 
 
+def _seed_admin_from_env() -> None:
+    """One-shot migration: if DB has no users but ADMIN_PASSWORD env is set,
+    seed user 'admin' with that password. Env is then ignored on subsequent boots."""
+    from gui.backend.admin import users as admin_users
+
+    legacy_pw = os.environ.get("ADMIN_PASSWORD") or os.environ.get("SPOTIFY_ADMIN_PASSWORD")
+    if not legacy_pw:
+        return
+    if admin_users.count_users() > 0:
+        return
+    try:
+        admin_users.create_user("admin", legacy_pw, skip_strength_check=True)
+        logger.warning("legacy env seed completed: admin user created from ADMIN_PASSWORD env. "
+                       "Consider rotating via admin_cli reset-password and removing the env var.")
+    except Exception as e:
+        logger.error("Admin env seed failed: %s", e)
+
+
+def _migrate_config_encryption() -> None:
+    """Upgrade plaintext spotify_client_secret in config.json to at-rest ciphertext."""
+    try:
+        from src.config import ConfigManager
+        migrated = ConfigManager().migrate_at_rest_encryption()
+        if migrated:
+            logger.warning("Upgraded config.json: spotify_client_secret now encrypted at rest.")
+    except Exception as e:
+        logger.error("At-rest config migration failed: %s", e)
+
+
+def _install_youtube_cookies() -> None:
+    """If admin uploaded cookies, install the pytubefix monkey-patch so every
+    youtube.com / googlevideo.com request carries the Cookie header."""
+    try:
+        from gui.backend.admin import yt_cookies
+        yt_cookies.install_cookie_patch()
+        if yt_cookies.is_present():
+            logger.info("YouTube cookies present at startup — injection patch active.")
+    except Exception as e:
+        logger.warning("YouTube cookies setup failed: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _seed_admin_from_env()
+    _migrate_config_encryption()
+    _install_youtube_cookies()
     deps = download._check_dependencies()
     if not deps.ready:
         missing = [k for k, v in deps.model_dump().items() if v is False and k != "ready"]
@@ -94,6 +143,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Spotify Sync Manager", lifespan=lifespan)
+
+# slowapi limiter for /admin/login
+app.state.limiter = _admin_limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.middleware("http")
@@ -107,6 +160,9 @@ async def _log_requests(request: Request, call_next):
         log.exception("Unhandled error on %s %s", request.method, request.url.path)
         raise
 
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(AdminGuardMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

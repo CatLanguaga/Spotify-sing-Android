@@ -404,7 +404,10 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 - [x] Variables de entorno en lugar de `~/.spotifytoyoutube/config.json`:
   - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` (prioridad sobre el archivo)
   - `DOWNLOAD_DIR` → `/app/downloads`; `SPOTIFY_QUEUE_FILE` → `/app/data/queue.json`
+  - `SPOTIFY_CONFIG_DIR` → `/app/data` (config.json en volumen persistente — sobrevive redeploys)
+  - `ADMIN_DB_PATH` → `/app/data/admin.sqlite3` (DB de admin users/sessions/audit en volumen)
 - [x] `ConfigManager.load_config()` lee env vars con prioridad y fallback al archivo (dev local)
+- [x] **Persistencia de credenciales Spotify entre redeploys** — `ConfigManager` ahora respeta `SPOTIFY_CONFIG_DIR` / `SPOTIFY_CONFIG_FILE`; el `config.json` vive en `/app/data` (volumen `data:` de docker-compose), no en `~/.spotifytoyoutube`. Si admin guarda credenciales desde `/settings`, sobreviven redeploys sin necesidad de re-setear el env. Env vars siguen teniendo prioridad si están presentes (uso CI/staging).
 - [x] `requirements-docker.txt` ligero (sin pywebview / google-api-python-client)
 - [x] Frontend `API_BASE` relativo (`/api`) fuera de Vite dev — funciona tras proxy/SSL de Coolify
 - [x] `/health` endpoint + Docker `HEALTHCHECK`
@@ -450,28 +453,34 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ### 11.1 — Modelo de usuario admin en DB
 
-- [ ] Tabla `admin_users` (SQLite por defecto, mismo dir que `queue.json` → `data/admin.sqlite3`): columnas `id`, `username` (unique, citext-like lowercase), `password_hash`, `password_algo`, `created_at`, `updated_at`, `last_login_at`, `failed_attempts`, `locked_until`, `totp_secret` (nullable), `is_active`.
-- [ ] Hash con **Argon2id** (`argon2-cffi`) — params: `time_cost=3`, `memory_cost=65536`, `parallelism=2`. Fallback `bcrypt` (cost 12) si Argon2 no disponible. Nunca SHA/MD5.
-- [ ] Migración: si `ADMIN_PASSWORD` env existe y tabla vacía, sembrar usuario `admin` con ese password al primer arranque, luego ignorar env en arranques siguientes (loggear `legacy env seed completed`).
-- [ ] CLI `python -m gui.backend.admin_cli create-user <username>` que pide password por stdin (no argv) + valida fuerza mínima (≥ 12 chars, mezcla clases).
-- [ ] CLI `reset-password <username>`, `lock <username>`, `unlock <username>`, `list-users`.
-- [ ] Eliminar default `"admin"` del fallback en `_admin_password()` — si no hay usuarios en DB y no hay env, devolver 503 en `/admin/login` con mensaje `"Admin not provisioned. Run CLI to create user."`.
+> Implementado round 1 (2026-06-05). Single-admin por ahora; modelo soporta multi-user para futura extensión.
+
+- [x] Tabla `admin_users` (SQLite por defecto, mismo dir que `queue.json` → `data/admin.sqlite3`): columnas `id`, `username` (unique, citext-like lowercase), `password_hash`, `password_algo`, `created_at`, `updated_at`, `last_login_at`, `failed_attempts`, `locked_until`, `totp_secret` (nullable), `is_active`.
+- [x] Hash con **Argon2id** (`argon2-cffi`) — params: `time_cost=3`, `memory_cost=65536`, `parallelism=2`. Fallback `bcrypt` (cost 12) si Argon2 no disponible. Nunca SHA/MD5.
+- [x] Migración: si `ADMIN_PASSWORD` env existe y tabla vacía, sembrar usuario `admin` con ese password al primer arranque, luego ignorar env en arranques siguientes (loggear `legacy env seed completed`).
+- [x] CLI `python -m gui.backend.admin_cli create-user <username>` que pide password por stdin (no argv) + valida fuerza mínima (≥ 12 chars, mezcla clases).
+- [x] CLI `reset-password <username>`, `lock <username>`, `unlock <username>`, `list-users`, `rotate-secret`, `revoke-sessions <username>`.
+- [x] Eliminar default `"admin"` del fallback en `_admin_password()` — si no hay usuarios en DB y no hay env, devolver 503 en `/admin/login` con mensaje `"Admin not provisioned. Run CLI to create user."`.
 
 ### 11.2 — Sesiones firmadas + rotación de secret
 
-- [ ] Reemplazar HMAC-SHA256 manual por `itsdangerous.TimestampSigner` o `authlib` con `ADMIN_SESSION_SECRET` obligatorio (≥ 32 bytes random, sin fallback al password).
-- [ ] Generar `ADMIN_SESSION_SECRET` automático al primer arranque si no existe (guardar en `data/.session_secret` con perms `0600`); rotación manual via CLI invalida todas las sesiones.
-- [ ] Cookie: añadir `__Host-` prefix cuando `ADMIN_COOKIE_SECURE=1` (fuerza Secure + path=/ + sin Domain), `SameSite=Strict` (no `Lax`) para reducir CSRF cross-site.
-- [ ] Sesión incluye `user_id`, `issued_at`, `jti` (uuid). Tabla `admin_sessions(jti, user_id, created_at, expires_at, revoked_at, ip_hash, ua_hash)` para revocación server-side.
-- [ ] Endpoint `POST /admin/logout-all` revoca todas las sesiones del usuario (útil tras sospecha).
-- [ ] TTL default 24h reducido a **2h** + sliding refresh; idle timeout 30 min.
+> Implementado round 1 (2026-06-05).
+
+- [x] Reemplazar HMAC-SHA256 manual por `itsdangerous.TimestampSigner` o `authlib` con `ADMIN_SESSION_SECRET` obligatorio (≥ 32 bytes random, sin fallback al password).
+- [x] Generar `ADMIN_SESSION_SECRET` automático al primer arranque si no existe (guardar en `data/.session_secret` con perms `0600`); rotación manual via CLI invalida todas las sesiones.
+- [x] Cookie: añadir `__Host-` prefix cuando `ADMIN_COOKIE_SECURE=1` (fuerza Secure + path=/ + sin Domain), `SameSite=Strict` (no `Lax`) para reducir CSRF cross-site.
+- [x] Sesión incluye `user_id`, `issued_at`, `jti` (uuid). Tabla `admin_sessions(jti, user_id, created_at, expires_at, revoked_at, ip_hash, ua_hash)` para revocación server-side.
+- [x] Endpoint `POST /admin/logout-all` revoca todas las sesiones del usuario (útil tras sospecha).
+- [x] TTL default 24h reducido a **2h** + sliding refresh; idle timeout 30 min.
 
 ### 11.3 — Rate-limit y lockout
 
-- [ ] `slowapi` (FastAPI middleware) — `/admin/login`: **5 intentos / 15 min por IP** + **10 / hora por username**. Excede → 429 con `Retry-After`.
-- [ ] Lockout progresivo por usuario: 5 fallos consecutivos → `locked_until = now + 15 min`; 10 fallos → 1h; 20 → requiere unlock manual via CLI.
-- [ ] Respuesta uniforme en login fallido (401 genérico) sin distinguir "user not found" vs "wrong password" — evita user enumeration.
-- [ ] Delay artificial constante (~200ms) en login para mitigar timing-attacks.
+> Implementado round 1 (2026-06-05). Per-username slowapi omitido — lockout progresivo cubre esa dimensión.
+
+- [x] `slowapi` (FastAPI middleware) — `/admin/login`: **5 intentos / 15 min por IP**. Excede → 429 con `Retry-After`. (Per-username throttling se delega a lockout progresivo de 11.3 punto 2 para evitar duplicación.)
+- [x] Lockout progresivo por usuario: 5 fallos consecutivos → `locked_until = now + 15 min`; 10 fallos → 1h; 20 → requiere unlock manual via CLI.
+- [x] Respuesta uniforme en login fallido (401 genérico) sin distinguir "user not found" vs "wrong password" — evita user enumeration. Dummy Argon2 verify en path missing-user para flatten timing.
+- [x] Delay artificial constante (~200ms) en login para mitigar timing-attacks.
 
 ### 11.4 — 2FA TOTP opcional (recomendado para deploy público)
 
@@ -482,46 +491,78 @@ El tag `APIC` (ID3v2) debe cumplir condiciones específicas para que el shell lo
 
 ### 11.5 — Ofuscación de superficie
 
-- [ ] Mover ruta de login admin a path no descubrible: env `ADMIN_PATH_PREFIX` (default `/admin`), si configurado a `/_x/<token>` el resto del montaje sigue ese prefix. **No seguridad por oscuridad sola** — capa adicional, no reemplazo de auth.
-- [ ] Quitar link "Admin" visible en `Footer.tsx` cuando `ADMIN_FOOTER_LINK=false` (env). Default `true` para self-host, `false` recomendado prod público.
-- [ ] `/admin/*` y `/settings` devuelven **404 idéntico al de SPA** (no 401) cuando no hay sesión y `ADMIN_STEALTH=true` — el atacante no confirma existencia del panel.
-- [ ] Banner de `Server:` header eliminado / sobrescrito a `nginx` genérico para no filtrar uvicorn + version.
+> Implementado round 3 (2026-06-05). `ADMIN_PATH_PREFIX` diferido — sobre-ingeniería para single-admin y rompe paths hardcoded del SPA. Las otras tres palancas dan 95% del valor.
+
+- [~] ~~Mover ruta de login admin a path no descubrible: `ADMIN_PATH_PREFIX`~~ — diferido. Rompe `/api/admin/*` hardcoded en frontend y CSRF cookie path; coste alto vs beneficio bajo en single-admin self-host.
+- [x] Quitar link "Admin" visible en `Footer.tsx` cuando `ADMIN_FOOTER_LINK=false` (env). Default `true` para self-host. `/api/config/public` expone `admin_footer_link`; `Footer.tsx` lo lee y oculta el link.
+- [x] `/admin/*` y rutas protegidas (`/config` GET/POST) devuelven **404** (no 401/403) cuando no hay sesión y `ADMIN_STEALTH=true`. `/admin/session` queda 200 (frontend lo necesita para conocer estado de auth) — trade-off documentado. CSRF mismatch también 404 bajo stealth.
+- [x] Banner de `Server:` header sobrescrito a `nginx` genérico (implementado round 2 en `SecurityHeadersMiddleware`).
 
 ### 11.6 — Endurecimiento de transporte y headers
 
-- [ ] Middleware de security headers (`secure` lib o manual): `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`.
-- [ ] CSP estricta: `default-src 'self'; img-src 'self' https://i.scdn.co data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'`.
-- [ ] Forzar HTTPS redirect cuando `FORCE_HTTPS=1`.
-- [ ] CSRF token sincronizado (double-submit cookie) en todos los `POST /admin/*` salvo `/login` (que ya es origen del session-set).
+> Implementado round 2 (2026-06-05). CSP y HSTS opt-in via `SECURITY_HEADERS_STRICT=1` para no romper Vite dev; en Docker default ON.
+
+- [x] Middleware de security headers (manual `SecurityHeadersMiddleware`): `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`. Header `Server` sobrescrito a `nginx` (no leak de uvicorn version).
+- [x] CSP estricta: `default-src 'self'; img-src 'self' https://i.scdn.co data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'`.
+- [x] Forzar HTTPS redirect cuando `FORCE_HTTPS=1` (honra `X-Forwarded-Proto` para Coolify/Traefik).
+- [x] CSRF token sincronizado (double-submit cookie) en todos los `POST /admin/*` salvo `/login`. Frontend `api/client.ts` lee cookie `spotify_sing_csrf` y manda `X-CSRF-Token` automáticamente en POST/PUT/PATCH/DELETE. Aplica también a `POST /config`.
 
 ### 11.7 — Audit log
 
-- [ ] Tabla `admin_audit(id, ts, user_id, ip_hash, action, target, result, meta_json)` con append-only.
-- [ ] Acciones loggeadas: `login_ok`, `login_fail`, `lockout`, `password_change`, `totp_enable`, `totp_disable`, `config_write`, `session_revoke`, `user_create`, `user_delete`.
-- [ ] IP y UA almacenados como `sha256(value + per-install-pepper)[:16]` — útil para correlación, no para identificación reversible.
-- [ ] Endpoint `GET /admin/audit?limit=&since=` (paginado) para revisión.
-- [ ] Log a stdout en JSON estructurado además de DB (apto para ingestión Coolify/Loki).
+> Implementado round 2 (2026-06-05).
+
+- [x] Tabla `admin_audit(id, ts, user_id, username, ip_hash, ua_hash, action, target, result, meta_json)` con append-only + indices por `ts`, `action`, `user_id`.
+- [x] Acciones loggeadas: `login_ok`, `login_fail`, `login_blocked`, `lockout`, `logout`, `logout_all`, `password_change`, `session_revoke`, `csrf_fail`, `config_write`, `audit_view`, `user_lock`, `user_unlock`, `user_create`, `user_delete` (vocab fijo en `audit.ACTIONS`).
+- [x] IP y UA almacenados como `sha256(value + ADMIN_META_PEPPER)[:16]` — útil para correlación, no para identificación reversible.
+- [x] Endpoint `GET /admin/audit?limit=&since=&action=&user_id=` (paginado, max 1000) para revisión.
+- [x] Log a stdout en JSON estructurado además de DB (apto para ingestión Coolify/Loki) — logger `admin.audit` emite línea `{"audit": true, ...}` por evento.
 
 ### 11.8 — Encriptación at-rest de credenciales sensibles
 
-- [ ] `SPOTIFY_CLIENT_SECRET` y `totp_secret` cifrados en DB con AES-256-GCM (key derivada de `ADMIN_DATA_KEY` env, ≥ 32 bytes). `cryptography.fernet` aceptable como alternativa.
-- [ ] Key separada del session secret — distintos blast-radius.
-- [ ] Helper `crypto.encrypt(plaintext) → bytes`, `crypto.decrypt(blob) → str` con versión de algoritmo prefijada para migraciones futuras.
-- [ ] Backups `data/*.sqlite3` excluyen exportar la key; documentar que sin `ADMIN_DATA_KEY` el backup es inútil (propiedad deseada).
+> Implementado round 3 (2026-06-05). `totp_secret` diferido hasta 11.4 (sin TOTP aún). `spotify_client_secret` ahora cifrado en `config.json` (no en DB — donde realmente vive el secret).
+
+- [x] `SPOTIFY_CLIENT_SECRET` cifrado at-rest en `config.json` con **Fernet** (AES-128-CBC + HMAC-SHA256, key 32 bytes url-safe base64). Key desde `ADMIN_DATA_KEY` env o auto-gen en `data/.data_key` (perms 0600). `totp_secret` en DB queda pendiente hasta que 11.4 introduzca 2FA.
+- [x] Key separada del session secret — `.data_key` ≠ `.session_secret`; distintos blast-radius. Rotación de uno no afecta al otro.
+- [x] Helper `gui/backend/admin/crypto.py` — `encrypt(plain) → "v1:<token>"`, `decrypt(blob) → str`, `is_encrypted(blob) → bool`, `try_decrypt(blob)` (no-op si plaintext). Prefijo `v1:` reservado para migración a `v2:` (AES-256-GCM si llega el caso) sin romper datos existentes.
+- [x] Migración auto: `ConfigManager.migrate_at_rest_encryption()` invocado en `lifespan`. Detecta secret plaintext en `config.json` (legacy), lo re-encripta in-place y loggea. Idempotente.
+- [x] Backups `data/` deben excluir la key: sin `ADMIN_DATA_KEY` env ni `.data_key` archivo, los secrets cifrados son irrecuperables (propiedad deseada). Documentar en runbook de 11.11.
 
 ### 11.9 — Validación y abuso
 
-- [ ] Pydantic strict mode en todos los body de `/admin/*` (`extra="forbid"`, longitudes máximas, regex de username `^[a-z0-9_.-]{3,32}$`).
-- [ ] Rechazar passwords del top-10k de `haveibeenpwned` (lista local descargada en build, no API externa).
-- [ ] Limitar tamaño body `/admin/*` a 8 KB (middleware).
-- [ ] Bloquear `User-Agent` vacío o `curl`/`python-requests` sin header custom en `/admin/*` (heurística suave; activable por env).
+> Implementado round 4 (2026-06-05).
 
-### 11.10 — Documentación + ops
+- [x] Pydantic strict mode en `AdminLoginRequest` (`extra="forbid"`, `min_length=1`, `max_length=512` para password, `max_length=64` para username). Regex de username `^[a-z0-9_.-]{3,32}$` aplicada en `users.validate_username`.
+- [x] Blocklist de passwords comunes. Lista bundled en `gui/backend/admin/data/common_passwords.txt` (~120 entradas que pasan checks estructurales pero son trivialmente guessable: `Password123!`, `Welcome2025!@`, etc.). Override con env `ADMIN_PWNED_LIST=/path/to/seclists.txt` para cobertura más amplia.
+- [x] `AdminGuardMiddleware` cap body en `/api/admin/*` y `/api/config` (default 8 KB, env `ADMIN_BODY_MAX_BYTES`). Retorna 413 (404 bajo stealth).
+- [x] `ADMIN_BLOCK_GENERIC_UA=1` rechaza UA vacío / `curl/` / `python-requests/` / `wget/` etc. en `/api/admin/*`. Bypass legítimo: header `X-Admin-Client: <cualquier valor>`. Default off para no romper scripts internos.
 
-- [ ] `README-docker.md`: sección "Securing your admin panel" con checklist de envs obligatorias en producción (`ADMIN_SESSION_SECRET`, `ADMIN_DATA_KEY`, `ADMIN_COOKIE_SECURE=1`, `FORCE_HTTPS=1`, `ADMIN_STEALTH=true`, `ADMIN_FOOTER_LINK=false`).
-- [ ] `.env.example` actualizado con los nuevos vars + comentarios `# REQUIRED in production`.
-- [ ] Script `tools/check-admin-hardening.py` que valida envs, perms de `data/.session_secret`, presencia de usuario admin, y reporta semáforo verde/ámbar/rojo.
-- [ ] Runbook breve: cómo rotar secret, cómo unlockear usuario, cómo revocar sesiones tras compromiso.
+### 11.10 — Cookies de YouTube vía login admin (bypass bot detection)
+
+> Implementado round 5 (2026-06-05). Sección embedded en `/settings` en vez de ruta dedicada (menos código, mismo UX).
+
+- [x] Sección protegida en `/settings` (componente `YouTubeCookiesCard` en `SettingsView.tsx`): textarea para pegar `cookies.txt`, toggle "validate live", botones Upload/Delete, status badge.
+- [~] ~~Botón "Iniciar sesión con YouTube" OAuth-style~~ — descartado en v1 (Google no expone export de cookies vía API). Upload manual con guía embebida.
+- [x] Guía paso a paso embedded (`<details>` collapsible): extensión `Get cookies.txt LOCALLY` → login en cuenta dedicada → export → paste → upload + warning sobre cuenta desechable.
+- [x] Backend `POST /admin/youtube-cookies` (JSON `{content, validate_live}`) — parser manual de formato Netscape (`http.cookiejar.Cookie` instances), valida `SID`/`HSID`/`SSID` + uno de `__Secure-3PSID`/`__Secure-1PSID`/`APISID`/`SAPISID`.
+- [x] Almacenamiento: cifrado con `crypto.encrypt` (Fernet, reusa key de 11.8) en `data/youtube_cookies.enc`. Metadata separada en `data/youtube_cookies.meta.json` (sin secretos). Plaintext NUNCA toca disco ni logs.
+- [x] Integración pytubefix: **monkey-patch** de `pytubefix.request._execute_request` (la lib no acepta `cookies=` en constructor en v10.7). Patch inyecta `Cookie:` header **solo** en URLs `youtube.com` / `googlevideo.com`, idempotente, tagged `_yt_cookies_patched`. Aplica a todos los call-sites de `YouTube()` automáticamente.
+- [x] Fallback graceful: `src/downloader.py` cachea bot-detection / consent errors → llama `yt_cookies.mark_invalid(reason)`. Limpia cache header → siguientes requests caen a PO Token only. UI muestra `last_status: invalid:<reason>` en rojo.
+- [x] Test de validez `validate_live=true` en upload: `YouTube(test_url, client='WEB').title` con patch instalado. Resultado en `meta.last_status` (`valid` o `invalid:<msg>`).
+- [x] `DELETE /admin/youtube-cookies` purga blob + metadata + cache. Audit `youtube_cookies_delete`.
+- [x] `GET /admin/youtube-cookies/status` → `{ present, uploaded_at, last_validated_at, last_status }`. Nunca devuelve cookies.
+- [x] Warning visible: "dedicated, throwaway YouTube account" en card UI + reminder de sanción potencial.
+- [x] Rate-limit upload: `5/hour` por IP via slowapi (`limiter.limit(YT_COOKIES_PER_HOUR)`).
+- [x] Audit: `youtube_cookies_upload` / `youtube_cookies_delete` / `youtube_cookies_invalid` añadidos a vocabulario `audit.ACTIONS`. Sin loggear contenido del blob.
+- [x] Documentado en `README-docker.md` sección "YouTube cookies (bot-detection bypass)" con guía de export, rotación, y nota de complementariedad con PO Token.
+
+### 11.11 — Documentación + ops
+
+> Implementado round 4 (2026-06-05).
+
+- [x] `README-docker.md` sección "Securing your admin panel" con checklist prod (`ADMIN_SESSION_SECRET`, `ADMIN_DATA_KEY`, `ADMIN_META_PEPPER`, `ADMIN_COOKIE_SECURE=1`, `SECURITY_HEADERS_STRICT=1`, `FORCE_HTTPS=1`, opcionales `ADMIN_STEALTH=1`, `ADMIN_FOOTER_LINK=false`, `ADMIN_BLOCK_GENERIC_UA=1`) + tabla de archivos persistentes + warnings sobre backups.
+- [x] `.env.example` reescrito por bloques (rondas 1-4) con comentarios sobre defaults, qué es obligatorio en prod, y comandos de generación.
+- [x] Script `tools/check-admin-hardening.py` valida envs, perms POSIX de `.session_secret`/`.data_key`, count de usuarios admin en DB, y reporta `[OK]/[WARN]/[FAIL]`. Flag `--prod` trata `WARN` como `FAIL` (apto para CI). Exit code 0/1.
+- [x] Runbook en `README-docker.md` cubre: lost password, unlock user, rotate secret, revoke sessions, inspect audit log, suspected compromise (4 pasos).
 
 ### Prioridad sugerida
 

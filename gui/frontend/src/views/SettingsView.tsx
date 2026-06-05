@@ -4,6 +4,126 @@ import { api, fetcher } from '../api/client'
 import { useToast } from '../components/toast-context'
 import { usePreferences } from '../preferences'
 
+type YtCookiesStatus = {
+  present: boolean
+  uploaded_at?: number | null
+  last_validated_at?: number | null
+  last_status?: string | null
+}
+
+function fmtTimestamp(ts?: number | null) {
+  if (!ts) return '—'
+  return new Date(ts * 1000).toLocaleString()
+}
+
+function YouTubeCookiesCard() {
+  const { data: status, mutate } = useSWR<YtCookiesStatus>('/admin/youtube-cookies/status', fetcher)
+  const { toast } = useToast()
+  const [content, setContent] = useState('')
+  const [validateLive, setValidateLive] = useState(true)
+  const [busy, setBusy] = useState(false)
+
+  const upload = async () => {
+    if (!content.trim()) return
+    setBusy(true)
+    try {
+      await api.post('/admin/youtube-cookies', { content, validate_live: validateLive })
+      setContent('')
+      await mutate()
+      toast('YouTube cookies saved.', 'success')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Upload failed', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const purge = async () => {
+    if (!confirm('Delete the stored YouTube cookies?')) return
+    setBusy(true)
+    try {
+      await api.delete('/admin/youtube-cookies')
+      await mutate()
+      toast('YouTube cookies removed.', 'info')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Delete failed', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const statusLabel = status?.last_status || (status?.present ? 'uploaded' : 'none')
+  const badStatus = (status?.last_status || '').startsWith('invalid')
+
+  return (
+    <div className="settings-card" style={{ marginTop: 16 }}>
+      <h2 style={{ marginTop: 0 }}>YouTube cookies (bot-detection bypass)</h2>
+      <p className="hint" style={{ marginTop: 0 }}>
+        Datacenter IPs often hit YouTube's "Sign in to confirm you're not a bot" wall.
+        Upload <code>cookies.txt</code> (Netscape format) from a <strong>dedicated, throwaway</strong>{' '}
+        YouTube account so pytubefix requests look like an authenticated session.
+        Cookies are encrypted at rest with <code>ADMIN_DATA_KEY</code>.
+      </p>
+
+      <div className="field" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span>Status:&nbsp;
+          <strong style={{ color: badStatus ? 'var(--err)' : (status?.present ? 'var(--ok)' : 'var(--ink-faint)') }}>
+            {statusLabel}
+          </strong>
+        </span>
+        <span className="hint">Uploaded: {fmtTimestamp(status?.uploaded_at)}</span>
+        <span className="hint">Last check: {fmtTimestamp(status?.last_validated_at)}</span>
+      </div>
+
+      <details style={{ marginTop: 12 }}>
+        <summary style={{ cursor: 'pointer' }}>How to export cookies.txt</summary>
+        <ol style={{ fontSize: 13, lineHeight: 1.6, marginTop: 8 }}>
+          <li>Install a browser extension like <em>Get cookies.txt LOCALLY</em> (Chrome/Firefox).</li>
+          <li>Log into <code>youtube.com</code> with a dedicated Google account (NOT your personal one).</li>
+          <li>Open the extension on a YouTube page and export → cookies.txt.</li>
+          <li>Open the file in a text editor, copy the entire contents, paste below, click Upload.</li>
+          <li>YouTube may sanction the account if it detects automation — burn it, don't reuse it.</li>
+        </ol>
+      </details>
+
+      <div className="field" style={{ marginTop: 12 }}>
+        <label htmlFor="yt-cookies-content">Paste cookies.txt contents</label>
+        <textarea
+          id="yt-cookies-content"
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          rows={6}
+          placeholder="# Netscape HTTP Cookie File&#10;.youtube.com&#9;TRUE&#9;/&#9;TRUE&#9;1234567890&#9;SID&#9;…"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+        />
+      </div>
+
+      <div className="field">
+        <label className="toggle-row">
+          <span>
+            <strong>Validate against YouTube on upload</strong>
+            <span className="hint">Makes one test request to confirm cookies aren't already rejected.</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={validateLive}
+            onChange={e => setValidateLive(e.target.checked)}
+          />
+        </label>
+      </div>
+
+      <div className="settings-actions">
+        <button className="btn btn-accent" onClick={upload} disabled={busy || !content.trim()}>
+          {busy ? <><span className="spinner" /> Uploading…</> : 'Upload cookies'}
+        </button>
+        <button className="btn btn-ghost" onClick={purge} disabled={busy || !status?.present}>
+          Delete stored cookies
+        </button>
+      </div>
+    </div>
+  )
+}
+
 type AdminSession = {
   authenticated: boolean
   default_password: boolean
@@ -248,6 +368,8 @@ export function SettingsView() {
           </button>
         </div>
       </div>
+
+      <YouTubeCookiesCard />
 
       <section className="settings-help" aria-label={t('setSpotifyAppGuide')}>
         <div className="help-head">

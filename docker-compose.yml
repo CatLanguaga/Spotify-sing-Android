@@ -13,12 +13,30 @@ services:
     expose:
       - "8000"
     environment:
-      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
-      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
+      # Spotify credentials. Optional — if omitted, the admin sets them once
+      # via /settings and they persist in /app/data/config.json (volume-backed),
+      # surviving redeploys without re-entry.
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
       DOWNLOAD_DIR: /app/downloads
       SPOTIFY_QUEUE_FILE: /app/data/queue.json
+      SPOTIFY_CONFIG_DIR: /app/data
+      ADMIN_DB_PATH: /app/data/admin.sqlite3
       MAX_TRACKS_PER_REQUEST: ${MAX_TRACKS_PER_REQUEST:-50}
       SPOTIFY_MAX_CONCURRENT_DOWNLOADS: ${SPOTIFY_MAX_CONCURRENT_DOWNLOADS:-3}
+      # Round 1/2 admin hardening — leave ADMIN_PASSWORD blank after first boot
+      # (DB seeded once; env then ignored). Rotate via admin_cli reset-password.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+      ADMIN_COOKIE_SECURE: ${ADMIN_COOKIE_SECURE:-1}
+      SECURITY_HEADERS_STRICT: ${SECURITY_HEADERS_STRICT:-1}
+      FORCE_HTTPS: ${FORCE_HTTPS:-1}
+      ADMIN_META_PEPPER: ${ADMIN_META_PEPPER:-}
+      # Round 3 — at-rest encryption + stealth. ADMIN_DATA_KEY auto-gens to
+      # /app/data/.data_key on first boot if absent (volume-persistent).
+      ADMIN_DATA_KEY: ${ADMIN_DATA_KEY:-}
+      ADMIN_STEALTH: ${ADMIN_STEALTH:-}
+      ADMIN_FOOTER_LINK: ${ADMIN_FOOTER_LINK:-true}
     volumes:
       - downloads:/app/downloads
       - data:/app/data

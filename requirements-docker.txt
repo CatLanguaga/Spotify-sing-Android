@@ -11,3 +11,7 @@ fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 langdetect>=1.0.9
 librosa>=0.10.0
+argon2-cffi>=23.1.0
+itsdangerous>=2.2.0
+slowapi>=0.1.9
+cryptography>=42.0.0

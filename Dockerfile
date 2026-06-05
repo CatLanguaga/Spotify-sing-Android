@@ -37,6 +37,8 @@ COPY --from=frontend /app/gui/frontend/dist ./gui/frontend/dist
 ENV SPOTIFY_SYNC_ROOT=/app \
     DOWNLOAD_DIR=/app/downloads \
     SPOTIFY_QUEUE_FILE=/app/data/queue.json \
+    SPOTIFY_CONFIG_DIR=/app/data \
+    ADMIN_DB_PATH=/app/data/admin.sqlite3 \
     PYTHONUNBUFFERED=1
 
 # Volumes: downloaded audio (ephemeral, auto-cleaned) + queue state
