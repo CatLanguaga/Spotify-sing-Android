@@ -66,12 +66,16 @@ def _request_is_https(request: Request) -> bool:
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if _force_https() and request.method in {"GET", "HEAD"} and not _request_is_https(request):
+        # /health is hit by the Docker HEALTHCHECK over loopback HTTP — never redirect it,
+        # otherwise the 308 fails the healthcheck and Coolify drops the backend.
+        is_health = request.url.path == "/health"
+
+        if not is_health and _force_https() and request.method in {"GET", "HEAD"} and not _request_is_https(request):
             # Only redirect safe methods — POST under wrong scheme is rejected upstream.
             target = request.url.replace(scheme="https")
             return RedirectResponse(url=str(target), status_code=308)
 
-        if _force_https() and not _request_is_https(request):
+        if not is_health and _force_https() and not _request_is_https(request):
             return Response("HTTPS required.", status_code=400)
 
         response: Response = await call_next(request)
