@@ -3,6 +3,17 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+.env
+.env.local
+
+# Admin runtime data (encrypted DB + at-rest key, never commit)
+data/admin.sqlite3
+data/admin.sqlite3-shm
+data/admin.sqlite3-wal
+data/.data_key
+
+# Runtime logs
+*.log
 *.egg-info/
 dist/
 build/
